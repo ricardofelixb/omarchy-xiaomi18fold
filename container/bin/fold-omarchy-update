@@ -24,13 +24,13 @@ latest_tag() {
 
 # Skip-listed migrations are marked done without running. A failed one is reported and left pending.
 run_migrations() {
-  local name failed=()
+  local name skip failed=()
   # Without the skip list a boot/kernel or sudo-resetting migration would run, so leave all pending.
-  [[ -s $FOLD_SKIP_FILE ]] || { warn "Skip list $FOLD_SKIP_FILE is missing; migrations left pending. Rerun container/install.sh."; return 1; }
+  skip=$(cat -- "$FOLD_SKIP_FILE" 2>/dev/null) && [[ -n $skip ]] || { warn "Skip list $FOLD_SKIP_FILE is missing or unreadable; migrations left pending. Rerun container/install.sh."; return 1; }
   mkdir -p "$MIGRATION_STATE"
   while read -r name; do
     [[ -n $name ]] || continue
-    if grep -Eq "^${name%.sh}([[:space:]]|\$)" "$FOLD_SKIP_FILE" 2>/dev/null; then
+    if grep -Eq "^${name%.sh}([[:space:]]|\$)" <<< "$skip"; then
       echo "Skipping migration ${name%.sh} (on the fold skip list, marked done)"
       touch "$MIGRATION_STATE/$name"; continue
     fi

@@ -3,7 +3,7 @@
 # container/install.sh (existing installs) and fold-omarchy-update. Source it with OMARCHY_PATH,
 # OMARCHY_REMOTE, FOLD_STATE and FOLD_PATCHES (the patches folder with BASE) set.
 # Returns 1 and leaves the checkout as it was when the move is not possible.
-omv_git() { git -C "$OMARCHY_PATH" -c advice.detachedHead=false -c user.name=omarchy-alarm-nspawn -c user.email=noreply@example.com "$@"; }
+omv_git() { git -C "$OMARCHY_PATH" -c advice.detachedHead=false -c notes.rewriteRef=refs/notes/fold -c user.name=omarchy-alarm-nspawn -c user.email=noreply@example.com "$@"; }
 omv_warn() { printf '\e[33m%s\e[0m\n' "$*" >&2; }
 
 # Prints "<tag> <commit>" for the release arm-port sits on: the recorded one, else the nearest tag.
@@ -14,16 +14,31 @@ omv_current_base() {
   echo "$tag $(omv_git rev-parse "$tag^{commit}")"
 }
 
+# The fork's commits carry a note in refs/notes/fold (rebase copies it). Anything without one is the user's.
+omv_mark_fork() { omv_git notes --ref=fold add -f -m fork-patch "$1" >/dev/null; }
+# Marks the commits in $1..HEAD that match a shipped patch (the installer calls this after applying them).
+omv_mark_fork_commits() {
+  local ids commit id
+  ids=$(for p in "$FOLD_PATCHES"/*.patch; do git patch-id --stable < "$p" | awk '{print $1}'; done)
+  for commit in $(omv_git rev-list "$1..HEAD"); do
+    id=$(omv_git show --format= -p "$commit" | git patch-id --stable | awk '{print $1}')
+    grep -Fxq "$id" <<< "$ids" && omv_mark_fork "$commit"
+  done
+  return 0
+}
+
 # Rebuild arm-port from the fork's own patches when the rebase conflicts and they target this tag.
-# Refused when arm-port holds commits the fork did not make: they would be lost.
+# Refused when arm-port holds a commit without the fork's note: it would be lost.
 omv_apply_shipped_patches() {
-  local new=$1 old=$2 patch extra
+  local new=$1 old=$2 patch commit
   [[ $(tr -d '\n' < "$FOLD_PATCHES/BASE" 2>/dev/null) == "$new" ]] || return 1
-  extra=$(omv_git log --format=%cn "$old..arm-port" | grep -vcx omarchy-alarm-nspawn)
-  ((extra == 0)) || return 1
+  for commit in $(omv_git rev-list "$old..arm-port"); do
+    omv_git notes --ref=fold show "$commit" >/dev/null 2>&1 || return 1
+  done
   omv_git switch -q --detach "$new" || return 1
   for patch in "$FOLD_PATCHES"/*.patch; do
     omv_git am -q "$patch" >/dev/null 2>&1 || { omv_git am --abort >/dev/null 2>&1; omv_git switch -q arm-port; return 1; }
+    omv_mark_fork HEAD
   done
   omv_git branch -f arm-port HEAD >/dev/null && omv_git switch -q arm-port
 }

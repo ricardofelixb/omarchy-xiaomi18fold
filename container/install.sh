@@ -162,13 +162,13 @@ clone_and_patch_omarchy() {
   local expected actual patch_file patch_id applied_ids tag=${OMARCHY_TAG:-v4.5.0}
   local remote=${FOLD_OMARCHY_REMOTE:-https://github.com/omacom/omarchy.git}
   expected=$(tr -d '\n' < "$ROOT/patches/BASE")
+  # shellcheck source=../lib/omarchy-move.sh
+  source "$ROOT/lib/omarchy-move.sh"
   if [[ ! -e $OMARCHY_PATH ]]; then
     if [[ $MIRROR == cn ]]; then network_unpack_omarchy "$ROOT" "$OMARCHY_PATH"
     else timeout 120 git clone --branch "$tag" --depth 1 "$remote" "$OMARCHY_PATH"; fi
-  elif ! git -C "$OMARCHY_PATH" rev-parse -q --verify "$tag^{commit}" >/dev/null; then
+  elif ! git -C "$OMARCHY_PATH" merge-base --is-ancestor "$expected" HEAD 2>/dev/null; then
     # An install made for an older release: move arm-port onto the pin first (same code as the updater).
-    # shellcheck source=../lib/omarchy-move.sh
-    source "$ROOT/lib/omarchy-move.sh"
     OMARCHY_REMOTE=$remote FOLD_STATE=$HOME/.local/state/fold FOLD_PATCHES=$ROOT/patches omarchy_move_to "$tag" || {
       echo "Existing Omarchy checkout could not move to $tag; it is unchanged." >&2; exit 1;
     }
@@ -201,6 +201,8 @@ clone_and_patch_omarchy() {
       git -C "$OMARCHY_PATH" -c user.name=omarchy-alarm-nspawn -c user.email=noreply@example.com am "$patch_file"
     fi
   done
+  # Mark the fork's commits so the updater can tell them from the user's own.
+  FOLD_PATCHES=$ROOT/patches omv_mark_fork_commits "$expected"
 }
 
 install_system_helpers() {
