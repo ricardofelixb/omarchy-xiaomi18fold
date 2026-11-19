@@ -23,8 +23,16 @@ adds to upstream files.
 - **Drop when:** upstream republishes the `tools-v0.2.9` release under the fold repo, or merges
   the same URL fix.
 
+### Drop `debug.fifo_pending_workaround` (Hyprland 0.57)
+
+- **Kind:** 1, useful to anyone. **Upstream candidate.**
+- **Bug:** Hyprland 0.57 removed the option, so login showed an "unknown config key" banner.
+- **Fix:** removed the block from `config/hypr/looknfeel.lua`; there is no replacement.
+- **Drop when:** upstream drops the key too.
+
 ## Quick checks
 
+- `luac -p config/hypr/*.lua`
 - `python3 -B tests/tool-programs-regressions.py`
 - `python3 -B tests/desktop-extras-regressions.py`
 
