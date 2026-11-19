@@ -8,4 +8,4 @@ Kinds: 1 = useful to anyone (upstream candidate), 2 = user preference over upstr
 
 ## Quick checks
 
-- `bash -n` and `shellcheck -S warning -s bash` on `container/bin/fold-hyprgrass-build` and `container/install.sh`; `bash tests/installer-regressions.sh`.
+- `bash -n` and `shellcheck -S warning -s bash` on `container/bin/fold-hyprgrass-build` and `container/install.sh`; `bash tests/installer-regressions.sh`, `bash tests/fold-hyprgrass-build-regressions.sh`.

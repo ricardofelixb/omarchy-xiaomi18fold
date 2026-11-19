@@ -9,6 +9,8 @@ set -euo pipefail
 repo=${HYPRGRASS_REPO:-https://github.com/horriblename/hyprgrass.git}
 src=${HYPRGRASS_SRC:-$HOME/src/hyprgrass}
 dest=${HYPRGRASS_PLUGIN:-$HOME/.local/lib/hyprland/plugins/libhyprgrass.so}
+build=${HYPRGRASS_BUILD:-$HOME/.cache/fold-hyprgrass-build}
+include=${HYPRGRASS_INCLUDE_DIR:-/usr/include}
 jobs=${HYPRGRASS_JOBS:-4}
 die() { echo "fold-hyprgrass-build: $*" >&2; exit 1; }
 
@@ -19,30 +21,34 @@ for tool in git meson ninja g++ pkg-config; do
   command -v "$tool" >/dev/null || die "missing build tool: $tool (sudo pacman -S --needed meson ninja gcc pkgconf git)"
 done
 pkg-config --exists hyprland || die 'hyprland development files not found (pkg-config hyprland)'
-[[ -e /usr/include/glm/glm.hpp ]] || die 'missing glm (sudo pacman -S --needed glm)'
+[[ -e $include/glm/glm.hpp ]] || die 'missing glm (sudo pacman -S --needed glm)'
 
 mkdir -p "$(dirname -- "$src")"
-[[ -d $src/.git ]] || git clone --quiet --no-checkout "$repo" "$src"
+[[ -d $src/.git ]] || git clone --quiet "$repo" "$src"
 git -C "$src" fetch --quiet origin HEAD
 pin=$(git -C "$src" show FETCH_HEAD:hyprpm.toml |
   sed -n "s/^[[:space:]]*\[\"$hl\"[[:space:]]*,[[:space:]]*\"\([0-9a-f]\{40\}\)\".*/\1/p" | tail -1)
 [[ -n $pin ]] || die "no hyprgrass release pins Hyprland commit $hl; use a Hyprland release that hyprgrass supports"
 
+# The stamp holds the Hyprland commit, the hyprgrass commit and the hash of the .so we installed,
+# so a plugin replaced by anything else is rebuilt.
 stamp="$dest.build"
-if [[ -f $dest && $(cat "$stamp" 2>/dev/null) == "$hl $pin" ]]; then
+if [[ -f $dest && $(cat "$stamp" 2>/dev/null) == "$hl $pin $(sha256sum "$dest" | cut -d' ' -f1)" ]]; then
   echo "hyprgrass $pin already installed for Hyprland $hl"
   exit 0
 fi
 
 echo "Building hyprgrass $pin for Hyprland $hl"
-git -C "$src" checkout --quiet --force --detach "$pin"
+[[ -z $(git -C "$src" status --porcelain --untracked-files=no) ]] ||
+  die "$src has uncommitted changes; commit or stash them (or remove the folder) and rerun"
+git -C "$src" checkout --quiet --detach "$pin"
 git -C "$src" submodule update --quiet --init --recursive
-rm -rf "$src/build"
-(cd "$src" && meson setup build && nice -n 19 ninja -C build -j "$jobs") ||
+rm -rf "$build"
+(meson setup "$build" "$src" && nice -n 19 ninja -C "$build" -j "$jobs") ||
   die "build failed; see the output above (source: $src)"
 
 mkdir -p "$(dirname -- "$dest")"
-install -m755 "$src/build/src/libhyprgrass.so" "$dest.new"
+install -m755 "$build/src/libhyprgrass.so" "$dest.new"
 mv -f "$dest.new" "$dest"
-echo "$hl $pin" > "$stamp"
+echo "$hl $pin $(sha256sum "$dest" | cut -d' ' -f1)" > "$stamp"
 echo "Installed $dest; run: hyprctl reload"
