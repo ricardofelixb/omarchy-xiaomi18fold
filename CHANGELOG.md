@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Hyprland 0.57: drop `debug.fifo_pending_workaround` from `looknfeel.lua`. 0.57 removed the
+  option (the FIFO commit path was rewritten, hyprwm/Hyprland#15504) and rejects it with a red
+  "unknown config key" banner at login. No replacement exists; the old default was already false.
+
 ## 0.1.0 — 2026-10-16
 
 First public Xiaomi 18 Fold release. Forked from
