@@ -591,7 +591,15 @@ EOF
       run runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$T_UID" systemctl --user enable --now fold-clip-bridge.service || true
       run runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$T_UID" systemctl --user enable --now fold-touch-flushd.service || true
     else
-      note "user manager not running; enable fold-clip-bridge / fold-touch-flushd after login"
+      # No user manager yet: make the links `systemctl --user enable` would, so both start at next login.
+      wants=$T_HOME/.config/systemd/user/default.target.wants
+      ensure_user_dir "$T_HOME/.config/systemd/user/default.target.wants"
+      for u in fold-clip-bridge fold-touch-flushd; do
+        [[ -f $fold/systemd/user/$u.service ]] || continue
+        run ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service"
+        run chown -h "$T_UID:$T_GID" "$wants/$u.service"
+      done
+      note "user manager not running; fold-clip-bridge / fold-touch-flushd are enabled for next login"
     fi
   fi
 }

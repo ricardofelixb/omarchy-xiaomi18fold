@@ -456,6 +456,19 @@ pacman_line=$(grep -n '==> 5/7' "$hlog" | head -n1 | cut -d: -f1 || true)
   || fail 'the DNS verification must be planned before the container-side pacman work'
 pass 'existing Arch rootfs is reused (no extraction) and DNS is checked before pacman'
 
+# The fold user units must start the binaries where install_fold_host_helpers puts them, and must be
+# enabled even when no user manager is running (a missing path gave status=203/EXEC; a skipped enable
+# left the clipboard bridge off, so Android's wl-paste hung on a dead wayland-0).
+for unit in fold-clip-bridge fold-touch-flushd; do
+  assert_has "$ROOT/host/fold/systemd/user/$unit.service" "ExecStart=/usr/local/bin/$unit"
+  [[ -f $ROOT/host/fold/bin/$unit ]] || fail "host/fold/bin/$unit missing"
+  assert_has "$ROOT/host/install.sh" "install -Dm755 \"\$fold/bin/\$b\" \"/usr/local/bin/\$b\""
+  grep -Eq "^  for b in .*\b$unit\b" "$ROOT/host/install.sh" || fail "host/install.sh must install $unit to /usr/local/bin"
+  assert_has "$ROOT/host/install.sh" 'ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service"'
+done
+assert_has "$ROOT/host/install.sh" 'wants=$T_HOME/.config/systemd/user/default.target.wants'
+pass 'fold user units point at /usr/local/bin and are enabled without a running user manager'
+
 # Cached tarball with a matching checksum must not be downloaded again.
 cache=$work/cache2
 mkdir -p "$cache"

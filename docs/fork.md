@@ -48,6 +48,14 @@ adds to upstream files.
 - **Where:** `container/bin/fold-drawer`, `container/bin/fold-display-guard`, `container/bin/fold-dismiss-overlays`, `container/bin/fold-session-rescue`, `tests/fold-drawer-regressions.sh`.
 - **Drop when:** upstream fixes `fold-drawer` the same way.
 
+### Fold user services run from `/usr/local/bin`
+
+- **Kind:** 1, useful to anyone. **Upstream candidate:** the clipboard bridge never ran, so Android's Terminal app froze on `wl-paste` every time it regained focus.
+- **Bug:** `fold-clip-bridge.service` and `fold-touch-flushd.service` pointed `ExecStart` at paths the installer never writes (status=203/EXEC), and the installer only enabled them when a user manager was running.
+- **Fix:** both units use `/usr/local/bin/<name>` (`fold-touch-flushd` through `sudo -n`, it reads `/dev/input`); without a user manager the installer links them into `default.target.wants` as the target user. `lib/fix-user-dirs.py` hands back root-owned folders from older installs without following links; `fold-touch-flushd` opens its log and FIFO without following links.
+- **Where:** `host/install.sh` (`install_fold_host_helpers`), `lib/fix-user-dirs.py` (new), `host/fold/bin/fold-touch-flushd`, `host/fold/systemd/user/fold-{clip-bridge,touch-flushd}.service`, `tests/installer-regressions.sh`.
+- **Drop when:** upstream fixes the unit paths and enabling the same way.
+
 ## Quick checks
 
 - `bash tests/fold-drawer-regressions.sh`
