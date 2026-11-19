@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Fold: build the hyprgrass touch-gesture plugin that matches the installed Hyprland and install it
+# to ~/.local/lib/hyprland/plugins/libhyprgrass.so (loaded by ~/.config/hypr/touch.lua).
+# hyprgrass is built against one exact Hyprland commit, so the matching hyprgrass commit comes from
+# the commit_pins list in hyprgrass's own hyprpm.toml. Safe to rerun: it does nothing when the
+# installed plugin was already built for this Hyprland commit.
+set -euo pipefail
+
+repo=${HYPRGRASS_REPO:-https://github.com/horriblename/hyprgrass.git}
+src=${HYPRGRASS_SRC:-$HOME/src/hyprgrass}
+dest=${HYPRGRASS_PLUGIN:-$HOME/.local/lib/hyprland/plugins/libhyprgrass.so}
+jobs=${HYPRGRASS_JOBS:-4}
+die() { echo "fold-hyprgrass-build: $*" >&2; exit 1; }
+
+hl=$(Hyprland --version 2>/dev/null | sed -n 's/.* at commit \([0-9a-f]\{40\}\).*/\1/p' | head -1)
+[[ -n $hl ]] || die 'cannot read the Hyprland commit from "Hyprland --version"'
+
+for tool in git meson ninja g++ pkg-config; do
+  command -v "$tool" >/dev/null || die "missing build tool: $tool (sudo pacman -S --needed meson ninja gcc pkgconf git)"
+done
+pkg-config --exists hyprland || die 'hyprland development files not found (pkg-config hyprland)'
+[[ -e /usr/include/glm/glm.hpp ]] || die 'missing glm (sudo pacman -S --needed glm)'
+
+mkdir -p "$(dirname -- "$src")"
+[[ -d $src/.git ]] || git clone --quiet --no-checkout "$repo" "$src"
+git -C "$src" fetch --quiet origin HEAD
+pin=$(git -C "$src" show FETCH_HEAD:hyprpm.toml |
+  sed -n "s/^[[:space:]]*\[\"$hl\"[[:space:]]*,[[:space:]]*\"\([0-9a-f]\{40\}\)\".*/\1/p" | tail -1)
+[[ -n $pin ]] || die "no hyprgrass release pins Hyprland commit $hl; use a Hyprland release that hyprgrass supports"
+
+stamp="$dest.build"
+if [[ -f $dest && $(cat "$stamp" 2>/dev/null) == "$hl $pin" ]]; then
+  echo "hyprgrass $pin already installed for Hyprland $hl"
+  exit 0
+fi
+
+echo "Building hyprgrass $pin for Hyprland $hl"
+git -C "$src" checkout --quiet --force --detach "$pin"
+git -C "$src" submodule update --quiet --init --recursive
+rm -rf "$src/build"
+(cd "$src" && meson setup build && nice -n 19 ninja -C build -j "$jobs") ||
+  die "build failed; see the output above (source: $src)"
+
+mkdir -p "$(dirname -- "$dest")"
+install -m755 "$src/build/src/libhyprgrass.so" "$dest.new"
+mv -f "$dest.new" "$dest"
+echo "$hl $pin" > "$stamp"
+echo "Installed $dest; run: hyprctl reload"

@@ -259,7 +259,7 @@ install_config_overlay() {
   install -Dm755 "$ROOT/container/bin/fcitx5-autostart" "$HOME/.local/bin/fcitx5-autostart"
   # Xiaomi 18 Fold helpers (display guard, touch flush, dock, OSK toggle, window menu)
   for _fold_bin in fold-display-guard fold-window-menu fold-touch-flush-req fold-dismiss-overlays \
-      fold-session-rescue omarchy-osk-toggle fold-dock fold-drawer; do
+      fold-session-rescue omarchy-osk-toggle fold-dock fold-drawer fold-hyprgrass-build; do
     if [[ -f $ROOT/container/bin/$_fold_bin ]]; then
       install -Dm755 "$ROOT/container/bin/$_fold_bin" "$HOME/.local/bin/$_fold_bin"
     fi
@@ -354,10 +354,19 @@ install_tool_programs() {
   fi
 }
 
+build_hyprgrass() {
+  mkdir -p "$HOME/.local/state/omarchy-alarm"
+  : > "$HOME/.local/state/omarchy-alarm/hyprgrass.txt"
+  if [[ $profile != full ]]; then echo 'SKIPPED hyprgrass: touch gestures need --profile full' | tee -a "$HOME/.local/state/omarchy-alarm/hyprgrass.txt"; return; fi
+  if ! "$HOME/.local/bin/fold-hyprgrass-build"; then
+    echo 'FAILED (nonfatal) hyprgrass touch-gesture plugin: build failed; rerun fold-hyprgrass-build to retry.' | tee -a "$HOME/.local/state/omarchy-alarm/hyprgrass.txt" >&2
+  fi
+}
+
 report_optional_results() {
   local report failed=false
   echo 'Optional installation results:'
-  for report in aur-extras lazyvim-extras tool-programs desktop-config; do
+  for report in aur-extras lazyvim-extras tool-programs hyprgrass desktop-config; do
     if [[ -f $HOME/.local/state/omarchy-alarm/$report.txt ]]; then
       cat "$HOME/.local/state/omarchy-alarm/$report.txt"
       if grep -q '^FAILED' "$HOME/.local/state/omarchy-alarm/$report.txt"; then failed=true; fi
@@ -365,7 +374,7 @@ report_optional_results() {
   done
   if $failed; then
     echo 'WARNING: OPTIONAL ITEMS FAILED — the desktop is installed, but the items listed below are MISSING or INCOMPLETE. Rerun to retry.' >&2
-    grep -h '^FAILED' "$HOME/.local/state/omarchy-alarm/"{aur-extras,lazyvim-extras,tool-programs,desktop-config}.txt >&2 2>/dev/null || true
+    grep -h '^FAILED' "$HOME/.local/state/omarchy-alarm/"{aur-extras,lazyvim-extras,tool-programs,hyprgrass,desktop-config}.txt >&2 2>/dev/null || true
   fi
 }
 
@@ -398,5 +407,6 @@ step provision_user_headless 'Run omarchy-provision-user headless; seed Tokyo Ni
 step configure_input_and_fonts 'Install configuration-only Rime presets, local keyfile backend, CJK fonts'
 step configure_stay_awake 'Default stay-awake ON, configure lock PAM, warn for locked passwords'
 step install_tool_programs 'Install verified mise and AI programs only (both profiles; failures are nonfatal)'
+step build_hyprgrass 'Build the hyprgrass touch-gesture plugin for the installed Hyprland (full profile; failures are nonfatal)'
 step report_optional_results 'Report every optional installation result and highlight failures'
 echo 'Container setup complete. Start the desktop using the host launcher.'
