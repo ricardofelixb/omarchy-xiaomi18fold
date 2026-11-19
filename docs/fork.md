@@ -56,6 +56,13 @@ adds to upstream files.
 - **Where:** `host/install.sh` (`install_fold_host_helpers`), `lib/fix-user-dirs.py` (new), `host/fold/bin/fold-touch-flushd`, `host/fold/systemd/user/fold-{clip-bridge,touch-flushd}.service`, `tests/installer-regressions.sh`.
 - **Drop when:** upstream fixes the unit paths and enabling the same way.
 
+### English window menu and `uwsm-app` messages
+
+- **Kind:** 2, the user's preference over upstream's Chinese text. Fork-only, not an upstream candidate; strings are replaced in place (no language setting) to keep upstream merges easy.
+- **Change:** on-screen text of `container/bin/fold-window-menu` and the `uwsm-app` error message and comments are English; comments naming those buttons use the new names.
+- **Where:** `container/bin/fold-window-menu`, `container/bin/uwsm-app`, comment lines in `config/hypr/autostart.lua`, `config/hypr/touch.lua`, `container/bin/fold-dismiss-overlays`, `host/fold/bin/fold-touch-flush`, `host/fold/bin/fold-touch-flushd`.
+- **Drop when:** never, unless upstream adopts English text.
+
 ## Quick checks
 
 - `bash tests/fold-drawer-regressions.sh`

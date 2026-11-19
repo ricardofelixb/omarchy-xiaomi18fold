@@ -30,7 +30,7 @@ end
 
 -- fold-ux9: every gesture also asks the phone host (fold-touch-flushd) to lift touch slots whose lift
 -- Android swallowed. hyprgrass cancels all touches after a gesture until a touch-down with exactly ONE
--- finger tracked, so one lost lift made the dock / 窗口管理 / every popup dead (fold-ux7 root cause).
+-- finger tracked, so one lost lift made the dock / Windows menu / every popup dead (fold-ux7 root cause).
 -- The request only lifts slots unchanged for >= 1.5 s within 2 s; it never taps (safe with popups open).
 local function bind(spec)
   local action = spec.action
@@ -60,7 +60,7 @@ hl.config({
 -- turn off "Slide 3 fingers down" (not required for the 4-finger set).
 --
 --   4 fingers  ← / →  next / previous workspace       (recommended; also 3 fingers)
---   4 fingers  ↑      回桌面: close popups; if none open, show the empty desktop (fold-dismiss-overlays)
+--   4 fingers  ↑      Desktop: close popups; if none open, show the empty desktop (fold-dismiss-overlays)
 --   4 fingers  ↓      apps menu toggle                 (also 3 fingers ↓)
 --   4 fingers  hold   window-management popup          (also 3 fingers hold)
 --   3 fingers  ↑      Omarchy menu

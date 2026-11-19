@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -I
 # fold-touch-flushd (phone host, root; started by systemd --user fold-touch-flushd.service via sudo)
 # fold-ux9: automatic "unstick" for the crosvm touchscreen, so a lost finger lift can no longer leave
-# hyprgrass in "inhibit all touches" (fold-ux7 root cause: popups / dock dead after 窗口管理).
+# hyprgrass in "inhibit all touches" (fold-ux7 root cause: popups / dock dead after the Windows menu).
 #
 # It never *presses* anything: it only injects the missing lift (ABS_MT_TRACKING_ID = -1) for kernel
 # MT slots that are still down although nothing moved on them, so no client sees an extra tap

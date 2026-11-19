@@ -1,5 +1,5 @@
 #!/bin/bash
-# fold-dismiss-overlays — "回桌面": close every popup/overlay that can cover the fold's screen.
+# fold-dismiss-overlays — "Desktop": close every popup/overlay that can cover the fold's screen.
 #
 # Usage: fold-dismiss-overlays [auto|popups|desktop|status]     (default: auto)
 #   popups   close fold-window-menu, the Omarchy menu and other Omarchy shell
@@ -9,8 +9,8 @@
 #   auto     like a phone's home gesture: if something was open, close it; if nothing was
 #            open, go to the desktop
 #   status   list the layer surfaces that are currently on screen
-# Wired to: 4-finger swipe up (touch.lua), the dock's "回桌面" button, the window menu's
-# "回桌面" button.  Over SSH (phone host): ~/fold-fix-tools/fx 'fold-dismiss-overlays desktop'
+# Wired to: 4-finger swipe up (touch.lua), the dock's "Desktop" button, the window menu's
+# "Desktop" button.  Over SSH (phone host): ~/fold-fix-tools/fx 'fold-dismiss-overlays desktop'
 set -u
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
 if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
