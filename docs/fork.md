@@ -40,6 +40,17 @@ adds to upstream files.
   report entry), `config/hypr/touch.lua` (header comment), `tests/fold-hyprgrass-build-regressions.sh`.
 - **Drop when:** upstream ships an equivalent build step.
 
+### Drop `GTK_IM_MODULE`, set `gtk-im-module` in GTK settings
+
+- **Kind:** 1, useful to anyone. **Upstream candidate.**
+- **Bug:** with `GTK_IM_MODULE=fcitx` set, fcitx5 shows a "Wayland Diagnose" notification at login.
+- **Fix:** `config/hypr/envs.lua` no longer sets it (matches Omarchy). GTK 3/4 apps under XWayland
+  still need fcitx, so `lib/gtk-im-module.sh` merges `gtk-im-module=fcitx` into
+  `~/.config/gtk-{3,4}.0/settings.ini` (fcitx5 Wayland docs); keeps other keys and an existing value.
+- **Where:** `config/hypr/envs.lua`, `lib/gtk-im-module.sh`, `container/install.sh` (one step),
+  `tests/gtk-im-module-regressions.sh`.
+- **Drop when:** never needed upstream; drop if Omarchy ships these settings.
+
 ### `fold-drawer` subcommands
 
 - **Kind:** 1, useful to anyone. **Upstream candidate:** the guard looped, opening a drawer every pass.
