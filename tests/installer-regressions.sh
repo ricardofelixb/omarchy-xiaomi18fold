@@ -552,6 +552,46 @@ assert done == inos, 'real folders not repaired in order'
 PY
 pass 'ownership helper skips a symlinked ~/.config and repairs real folders'
 
+# fold-touch-flushd runs as root in droid's tree: its log must never follow a link droid planted
+# (log -> nonexistent /etc/ld.so.preload, or a symlinked state folder). Run as a normal user with
+# fchown recorded instead of performed.
+fd=$work/flushd
+mkdir -p "$fd/ok/.local/state/omarchy-alarm" "$fd/lnk/.local/state" "$fd/lnk-dir/.local/state" "$fd/victim"
+ln -s "$fd/victim" "$fd/lnk/.local/state/omarchy-alarm"
+ln -s "$fd/victim/ld.so.preload" "$fd/lnk-dir/.local/state/omarchy-alarm"
+python3 -I - "$ROOT/host/fold/bin/fold-touch-flushd" "$fd" <<'PY' || fail 'fold-touch-flushd log regression failed'
+import importlib.machinery, importlib.util, os, sys
+loader = importlib.machinery.SourceFileLoader('flushd', sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader('flushd', loader))
+loader.exec_module(mod)
+fd = sys.argv[2]
+chowned = []
+os.fchown = lambda f, u, g: chowned.append((u, g))
+# normal: created once and handed to droid, then appended without another chown
+mod.HOME = fd + '/ok'
+mod.log('one'); mod.log('two')
+txt = open(fd + '/ok/.local/state/omarchy-alarm/fold-touch-flushd.log').read()
+assert txt.count('\n') == 2 and 'one' in txt and 'two' in txt, txt
+assert chowned == [(1000, 100)], chowned
+# planted link as the log file itself, pointing at a path that does not exist yet
+os.symlink(fd + '/victim/ld.so.preload', fd + '/ok/.local/state/omarchy-alarm/planted.log')
+mod.LOG_NAME = 'planted.log'
+chowned.clear()
+try: mod.log('x')
+except OSError: pass
+else: raise AssertionError('wrote through a symlinked log file')
+# planted link as a folder on the way
+mod.LOG_NAME = 'fold-touch-flushd.log'
+for home in ('/lnk', '/lnk-dir'):
+    mod.HOME = fd + home
+    try: mod.log('x')
+    except OSError: pass
+    else: raise AssertionError('followed a symlinked folder: ' + home)
+assert not os.path.lexists(fd + '/victim/ld.so.preload') and not os.listdir(fd + '/victim'), os.listdir(fd + '/victim')
+assert chowned == [], chowned
+PY
+pass 'fold-touch-flushd log refuses planted symlinks (file and folder) and still logs normally'
+
 # Cached tarball with a matching checksum must not be downloaded again.
 cache=$work/cache2
 mkdir -p "$cache"

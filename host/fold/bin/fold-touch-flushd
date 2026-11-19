@@ -23,7 +23,7 @@ import fcntl, glob, os, select, stat, struct, subprocess, time
 HOME = "/home/droid"
 FIFO = "/run/user/1000/fold-touch-flush.fifo"
 FLUSH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fold-touch-flush")
-LOG = HOME + "/.local/state/omarchy-alarm/fold-touch-flushd.log"
+LOG_DIRS, LOG_NAME = (".local", "state", "omarchy-alarm"), "fold-touch-flushd.log"
 NOWATCH = HOME + "/.config/fold-touch-flushd-no-watch"
 REQ_WAIT, REQ_STALE = 2.0, 1.5
 STALE_MULTI, STALE_SINGLE = 4.0, 10.0
@@ -31,12 +31,28 @@ ABS_MT_SLOT, ABS_MT_X, ABS_MT_Y, ABS_MT_ID = 0x2F, 0x35, 0x36, 0x39
 
 
 def log(m):
-    line = f"{time.strftime('%F %T')} {m}\n"
-    new = not os.path.exists(LOG)
-    with open(LOG, "a") as f:
-        f.write(line)
-    if new:
-        os.chown(LOG, 1000, 100)
+    # Runs as root inside a droid-owned tree: open every part of the path with O_NOFOLLOW so a
+    # symlink droid plants (e.g. log -> /etc/ld.so.preload) is refused instead of written/chowned.
+    line = f"{time.strftime('%F %T')} {m}\n".encode()
+    dirfd = os.open(HOME, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for d in LOG_DIRS:
+            nxt = os.open(d, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dirfd)
+            os.close(dirfd)
+            dirfd = nxt
+        flags = os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW
+        try:
+            fd, new = os.open(LOG_NAME, flags | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=dirfd), True
+        except FileExistsError:
+            fd, new = os.open(LOG_NAME, flags, dir_fd=dirfd), False
+    finally:
+        os.close(dirfd)
+    try:
+        os.write(fd, line)
+        if new:
+            os.fchown(fd, 1000, 100)
+    finally:
+        os.close(fd)
 
 
 def ioc(d, t, n, s): return (d << 30) | (s << 16) | (ord(t) << 8) | n
@@ -162,4 +178,5 @@ def main():
                 seen.pop(s, None)
 
 
-main()
+if __name__ == "__main__":
+    main()
