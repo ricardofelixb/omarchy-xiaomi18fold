@@ -66,12 +66,21 @@ PATH="$work/bin:$PATH" LOG="$work/log" STATE="$work/state" ADJ=1.83 bash -c 'log
 
 # event loop: subscribed before the first check, and the backstop fires on elapsed time even when
 # events keep arriving faster than the poll interval
-printf '#!/bin/sh\n# like socat: fail at once when the socket is missing\nfor a; do :; done; [ -S "${a#UNIX-CONNECT:}" ] || exit 1\ntouch "$WORK/socat-started"\nwhile :; do echo workspacev2\\>\\>1; sleep 0.2; done\n' > "$work/bin/socat"
+cat > "$work/bin/socat" <<'STUB'
+#!/bin/sh
+# like socat: UNIX-CONNECT fails unless something is accepting on the socket; `socat /dev/null ...`
+# is the probe, anything else streams events
+for a; do :; done
+python3 -c 'import socket,sys; socket.socket(socket.AF_UNIX).connect(sys.argv[1])' "${a#UNIX-CONNECT:}" 2>/dev/null || exit 1
+[ "$1" = /dev/null ] && exit 0
+touch "$WORK/socat-started"
+while :; do echo 'workspacev2>>1'; sleep 0.2; done
+STUB
 chmod +x "$work/bin/socat"
 loop=$(sed -n '/^# Subscribe before the first check/,$p' "$ROOT/container/bin/fold-display-guard")
 : > "$work/checks"
-# the socket appears one second after the guard starts (Hyprland still starting)
-(command sleep 1; exec python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); time.sleep(8)' "$work/ev.sock") &
+# the socket file exists at once but only accepts connections after one second (Hyprland still starting)
+(exec python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); time.sleep(1); s.listen(5); time.sleep(8)' "$work/ev.sock") &
 sockpid=$!
 WORK=$work PATH="$work/bin:$PATH" FOLD_POLL_S=2 timeout 6 bash -c '
   POLL_S=$FOLD_POLL_S; SOCKET=$WORK/ev.sock; declare -A popup_since=(); last_active=""; HYPRLAND_INSTANCE_SIGNATURE=t
