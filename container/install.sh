@@ -268,6 +268,7 @@ install_config_overlay() {
   install -Dm755 "$ROOT/container/bin/portal-autostart" "$HOME/.local/bin/portal-autostart"
   install -Dm755 "$ROOT/container/bin/lock-ime-reset-autostart" "$HOME/.local/bin/lock-ime-reset-autostart"
 }
+configure_gtk_im_module() { bash "$ROOT/lib/gtk-im-module.sh"; }
 configure_bashrc() {
   local rc="$HOME/.bashrc"
   touch "$rc"
@@ -405,6 +406,7 @@ step setup_lazyvim 'Install LazyVim only when nvim config is absent, using verif
 step configure_bashrc 'Append marked Omarchy default bash configuration and bin PATH'
 step provision_user_headless 'Run omarchy-provision-user headless; seed Tokyo Night theme'
 step configure_input_and_fonts 'Install configuration-only Rime presets, local keyfile backend, CJK fonts'
+step configure_gtk_im_module 'Set gtk-im-module=fcitx in GTK 3/4 settings.ini for XWayland apps; keep existing keys'
 step configure_stay_awake 'Default stay-awake ON, configure lock PAM, warn for locked passwords'
 step install_tool_programs 'Install verified mise and AI programs only (both profiles; failures are nonfatal)'
 step build_hyprgrass 'Build the hyprgrass touch-gesture plugin for the installed Hyprland (full profile; failures are nonfatal)'
