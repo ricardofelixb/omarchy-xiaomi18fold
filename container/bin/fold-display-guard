@@ -11,9 +11,9 @@
 # fold-ux4 additions:
 #   - the dock (fold-dock wrapper / nwg-dock layer) is brought back if it died
 #     (wrapper gave up, layer missing on the active output);
-#   - after an output swap, popups (window menu) are closed, so no stale full-screen surface
+#   - after an output swap, popups (window menu, apps menu) are closed, so no stale full-screen surface
 #     is left behind;
-#   - any app window opening or any workspace switch closes a leftover window menu
+#   - any app window opening or any workspace switch closes a leftover window menu / apps menu
 #     (a full-screen popup over a new window looked like a frozen screen);
 #   - every hyprctl call has a timeout (a wedged IPC call must not wedge the guard);
 #   - socat no longer inherits the guard's flock (an orphan socat blocked guard restarts).
@@ -157,13 +157,14 @@ check() {
   fi
 }
 
-# Close a leftover full-screen window menu (cheap: one hyprctl call, at most 1/s).
+# Close a leftover full-screen window menu / apps menu (cheap: one hyprctl call, at most 1/s).
 close_popups() {
   (( SECONDS - last_popup_close >= 1 )) || return 0
   last_popup_close=$SECONDS
   local ls
   ls=$(hyprctl layers 2>/dev/null) || return 0
   if grep -q 'namespace: fold-window-menu,' <<<"$ls"; then fold-window-menu close; fi
+  if grep -q 'namespace: omarchy-menu,' <<<"$ls"; then fold-drawer close; fi
 }
 
 # After an output swap: no popup may stay on (or for) the old output.
