@@ -20,8 +20,7 @@ o.launch_on_start("fold-display-guard")
 -- respawned by the wrapper if it exits. Off: touch ~/.config/fold-dock-disabled; pkill -f bin/fold-dock; pkill -f nwg-dock-hyprland
 o.launch_on_start("fold-dock")
 
--- fold-ux4: keep the app drawer resident (opens in ~0.1 s instead of ~0.9 s). The guard restarts it
--- if it dies. Off: touch ~/.config/fold-drawer-no-resident; fold-drawer restart
--- fold-ux5: resident drawer DISABLED (was auto-covering / trapping touch).
--- Open on demand: dock grid / fold-drawer toggle. Re-enable only after spawn-stays-hidden verified.
--- o.launch_on_start("fold-drawer daemon")
+-- fold-ux4: the app drawer stays resident (opens in ~0.1 s instead of ~0.9 s). fold-display-guard
+-- starts the hidden resident drawer (fold-drawer daemon) and restarts it if it dies, so there is no
+-- launch here. Off: touch ~/.config/fold-drawer-no-resident; fold-drawer restart
+-- Open on demand: dock grid / fold-drawer toggle.

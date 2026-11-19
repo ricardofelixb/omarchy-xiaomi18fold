@@ -40,8 +40,17 @@ adds to upstream files.
   report entry), `config/hypr/touch.lua` (header comment), `tests/fold-hyprgrass-build-regressions.sh`.
 - **Drop when:** upstream ships an equivalent build step.
 
+### `fold-drawer` subcommands
+
+- **Kind:** 1, useful to anyone. **Upstream candidate:** the guard looped, opening a drawer every pass.
+- **Bug:** `fold-drawer` passed `daemon`/`open`/`close`/`toggle`/`restart` to `nwg-drawer`, which opened a visible drawer for each; the guard never saw its daemon (exec renamed it) and started another every pass. Latent until `nwg-drawer` entered `packages/repo-full.txt`.
+- **Fix:** `container/bin/fold-drawer` implements the subcommands (hidden resident drawer, open/close/toggle on it, restart); `config/hypr/autostart.lua` comment says the guard starts the resident drawer.
+- **Where:** `container/bin/fold-drawer`, `tests/fold-drawer-regressions.sh`.
+- **Drop when:** upstream fixes `fold-drawer` the same way.
+
 ## Quick checks
 
+- `bash tests/fold-drawer-regressions.sh`
 - `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`
 - `python3 -B tests/tool-programs-regressions.py`
