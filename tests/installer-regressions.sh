@@ -456,6 +456,182 @@ pacman_line=$(grep -n '==> 5/7' "$hlog" | head -n1 | cut -d: -f1 || true)
   || fail 'the DNS verification must be planned before the container-side pacman work'
 pass 'existing Arch rootfs is reused (no extraction) and DNS is checked before pacman'
 
+# The fold user units must start the binaries where install_fold_host_helpers puts them, and must be
+# enabled even when no user manager is running (a missing path gave status=203/EXEC; a skipped enable
+# left the clipboard bridge off, so Android's wl-paste hung on a dead wayland-0).
+for unit in fold-clip-bridge fold-touch-flushd; do
+  # fold-touch-flushd needs root for /dev/input, so its unit must go through the installer's sudoers entry.
+  prefix=''; [[ $unit != fold-touch-flushd ]] || prefix='/usr/bin/sudo -n '
+  grep -qxF "ExecStart=$prefix/usr/local/bin/$unit" "$ROOT/host/fold/systemd/user/$unit.service" ||
+    fail "$unit.service must be exactly ExecStart=$prefix/usr/local/bin/$unit"
+  [[ -f $ROOT/host/fold/bin/$unit ]] || fail "host/fold/bin/$unit missing"
+  assert_has "$ROOT/host/install.sh" "install -Dm755 \"\$fold/bin/\$b\" \"/usr/local/bin/\$b\""
+  grep -Eq "^  for b in .*\b$unit\b" "$ROOT/host/install.sh" || fail "host/install.sh must install $unit to /usr/local/bin"
+  assert_has "$ROOT/host/install.sh" 'runuser -u "$TARGET_USER" -- ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service"'
+done
+assert_has "$ROOT/host/install.sh" 'runuser -u "$TARGET_USER" -- mkdir -p "$wants"'
+assert_has "$ROOT/host/install.sh" 'wants=$T_HOME/.config/systemd/user/default.target.wants'
+pass 'fold user units point at /usr/local/bin and are enabled without a running user manager'
+
+# No user manager: every folder under the home must be made by the target user (runuser), never by the
+# root-run installer, and folders an older install left owned by root must be handed back, or the user
+# cannot create default.target.wants. $1 = fresh | upgrade (root-owned .config/systemd/user to repair).
+fold_home_case() {
+  local mode=$1 unit fh=$work/fold-$1
+  mkdir -p "$fh/home" "$fh/bin"
+  if [[ $mode == upgrade ]]; then
+    mkdir -p "$fh/home/.config/systemd/user"
+    printf '%s\n' "$fh/home/.config/systemd/user" > "$fh/rootdirs"
+  fi
+  {
+    sed -n '/^note()/p;/^warn()/p;/^run()/,/^}/p' "$ROOT/host/install.sh"
+    cat <<STUBS
+DRY_RUN=0; TARGET_USER=tester; T_UID=\$(id -u); T_GID=\$(id -g); ROOTDIRS=$fh/rootdirs; touch "\$ROOTDIRS"
+# folders still "owned by root": the target user cannot create anything inside or below them
+runuser() {
+  local a p
+  shift 3
+  for a in "\$@"; do p=\$a; done
+  while [[ \$p == /* && \$p != / ]]; do
+    ! grep -qxF -- "\$p" "\$ROOTDIRS" || { echo "permission denied under \$p" >&2; return 1; }
+    p=\$(dirname -- "\$p")
+  done
+  "\$@"
+}
+# the ownership helper: here it simply clears the stale folders, and must be asked to walk from the home
+python3() {
+  [[ \$1 == -I && \$2 == */lib/fix-user-dirs.py && \$3 == "\$T_HOME" && \${*: -4} == ".config systemd user default.target.wants" ]] || return 1
+  : > "\$ROOTDIRS"
+}
+install() {
+  local a dst=''
+  for a in "\$@"; do dst=\$a; done
+  if [[ \$1 == -d ]]; then
+    [[ \$dst != "\$T_HOME"/* ]] || { echo "root created \$dst" >&2; return 1; }
+    command install -d "\$dst"; return
+  fi
+  [[ -d \$(dirname -- "\$dst") ]] || { echo "root created parent of \$dst" >&2; return 1; }
+  command install -m 644 "\${@: -2:1}" "\$dst"
+}
+STUBS
+    echo "SCRIPT_DIR=$ROOT/host; T_HOME=$fh/home"
+    sed -n '/^install_user_file()/,/^}/p;/^ensure_user_dir()/,/^}/p' "$ROOT/host/install.sh"
+    sed -n '/^install_fold_host_helpers()/,/^}/p' "$ROOT/host/install.sh" |
+      sed "s|/usr/local/bin|$fh/bin|g;/sudoers.d/,/^    fi\$/d;s|-S /run/user/\\\$T_UID/bus|-S /nonexistent|;/fold-touch-sync.service/,/^  fi\$/d;s|install -Dm755|command install -Dm755|"
+    echo 'set -e; install_fold_host_helpers'
+  } > "$fh/run.sh"
+  bash "$fh/run.sh" > "$fh/log" 2>&1 || fail "$mode home fold helper install failed: $(tail -n 5 "$fh/log")"
+  for unit in fold-clip-bridge fold-touch-flushd; do
+    [[ -L $fh/home/.config/systemd/user/default.target.wants/$unit.service ]] || fail "$unit not enabled on a $mode home"
+  done
+  assert_lacks "$fh/log" 'could not'
+  # Both daemons log into this folder at startup and die if it is missing: open the logs the way they do.
+  local st=$fh/home/.local/state/omarchy-alarm
+  [[ -d $st ]] || fail "$mode home: $st not created, the fold services would exit with FileNotFoundError"
+  : >> "$st/fold-clip-bridge.log" || fail "$mode home: fold-clip-bridge cannot open its log"
+  python3 -I - "$ROOT/host/fold/bin/fold-touch-flushd" "$fh/home" <<'PY' || fail "$mode home: fold-touch-flushd cannot open its log"
+import importlib.machinery, importlib.util, os, sys
+loader = importlib.machinery.SourceFileLoader('flushd', sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader('flushd', loader))
+loader.exec_module(mod)
+os.fchown = lambda f, u, g: None
+mod.HOME = sys.argv[2]
+mod.log('start')
+PY
+}
+fold_home_case fresh
+fold_home_case upgrade
+pass 'fresh and root-owned-folder upgrade homes get the fold user units enabled, every folder owned by the target user'
+
+# The ownership helper must never follow a link the user planted: ~/.config -> a folder elsewhere
+# (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal
+# user, "stale" is our own uid and fchown is recorded instead of performed.
+ud=$work/fold-links
+mkdir -p "$ud/victim/systemd/user" "$ud/home" "$ud/home2/.config/systemd/user"
+ln -s "$ud/victim" "$ud/home/.config"
+python3 -I - "$ROOT/lib/fix-user-dirs.py" "$ud" <<'PY' || fail 'fix-user-dirs.py regression failed'
+import importlib.util, os, sys
+spec = importlib.util.spec_from_file_location('fix_user_dirs', sys.argv[1])
+mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+ud = sys.argv[2]
+done = []
+os.fchown = lambda fd, u, g: done.append(os.fstat(fd).st_ino)
+me = os.getuid()
+chain = ['.config', 'systemd', 'user']
+mod.repair(ud + '/home', 1, 1, chain, stale=me)
+assert done == [], 'followed a symlinked .config'
+inos = [os.stat(ud + '/home2/.config' + x).st_ino for x in ('', '/systemd', '/systemd/user')]
+mod.repair(ud + '/home2', 1, 1, chain, stale=me)
+assert done == inos, 'real folders not repaired in order'
+PY
+pass 'ownership helper skips a symlinked ~/.config and repairs real folders'
+
+# fold-touch-flushd runs as root in droid's tree: its log must never follow a link droid planted
+# (log -> nonexistent /etc/ld.so.preload, or a symlinked state folder). Run as a normal user with
+# fchown recorded instead of performed.
+fd=$work/flushd
+mkdir -p "$fd/ok/.local/state/omarchy-alarm" "$fd/lnk/.local/state" "$fd/lnk-dir/.local/state" "$fd/victim"
+ln -s "$fd/victim" "$fd/lnk/.local/state/omarchy-alarm"
+ln -s "$fd/victim/ld.so.preload" "$fd/lnk-dir/.local/state/omarchy-alarm"
+python3 -I - "$ROOT/host/fold/bin/fold-touch-flushd" "$fd" <<'PY' || fail 'fold-touch-flushd log regression failed'
+import importlib.machinery, importlib.util, os, stat, sys
+loader = importlib.machinery.SourceFileLoader('flushd', sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader('flushd', loader))
+loader.exec_module(mod)
+fd = sys.argv[2]
+chowned = []
+os.fchown = lambda f, u, g: chowned.append((u, g))
+# normal: created once and handed to droid, then appended without another chown
+mod.HOME = fd + '/ok'
+mod.log('one'); mod.log('two')
+txt = open(fd + '/ok/.local/state/omarchy-alarm/fold-touch-flushd.log').read()
+assert txt.count('\n') == 2 and 'one' in txt and 'two' in txt, txt
+assert chowned == [(1000, 100)], chowned
+# planted link as the log file itself, pointing at a path that does not exist yet
+os.symlink(fd + '/victim/ld.so.preload', fd + '/ok/.local/state/omarchy-alarm/planted.log')
+mod.LOG_NAME = 'planted.log'
+chowned.clear()
+try: mod.log('x')
+except OSError: pass
+else: raise AssertionError('wrote through a symlinked log file')
+# planted link as a folder on the way
+mod.LOG_NAME = 'fold-touch-flushd.log'
+for home in ('/lnk', '/lnk-dir'):
+    mod.HOME = fd + home
+    try: mod.log('x')
+    except OSError: pass
+    else: raise AssertionError('followed a symlinked folder: ' + home)
+assert not os.path.lexists(fd + '/victim/ld.so.preload') and not os.listdir(fd + '/victim'), os.listdir(fd + '/victim')
+assert chowned == [], chowned
+# FIFO: a planted link (to a live FIFO, or dangling) is replaced, never followed or chowned; a link
+# as the folder is refused; a droid-owned FIFO is kept; a FIFO owned by someone else is recreated.
+mod.UID = os.getuid()
+os.makedirs(fd + '/run/real'); os.symlink(fd + '/run/real', fd + '/run/lnk')
+victim = fd + '/victim/initctl'; os.mkfifo(victim)
+vino = os.stat(victim).st_ino
+mod.FIFO = fd + '/run/real/f.fifo'
+os.symlink(victim, mod.FIFO)
+chowned.clear()
+os.close(mod.open_fifo())
+assert stat.S_ISFIFO(os.lstat(mod.FIFO).st_mode) and os.stat(victim).st_ino == vino
+assert len(chowned) == 1 and chowned[0] == (mod.UID, mod.GID), chowned
+os.unlink(mod.FIFO); os.symlink(fd + '/victim/missing', mod.FIFO)
+os.close(mod.open_fifo())
+assert stat.S_ISFIFO(os.lstat(mod.FIFO).st_mode) and not os.path.lexists(fd + '/victim/missing')
+ino = os.lstat(mod.FIFO).st_ino; chowned.clear()
+os.close(mod.open_fifo())
+assert os.lstat(mod.FIFO).st_ino == ino and chowned == [], 'own FIFO must be kept untouched'
+mod.UID += 1
+os.close(mod.open_fifo())
+assert os.lstat(mod.FIFO).st_ino != ino and len(chowned) == 1, 'foreign-owned FIFO must be recreated'
+mod.FIFO = fd + '/run/lnk/f.fifo'
+try: mod.open_fifo()
+except OSError: pass
+else: raise AssertionError('followed a symlinked FIFO folder')
+assert os.listdir(fd + '/run/real') == ['f.fifo']
+PY
+pass 'fold-touch-flushd log and FIFO refuse planted symlinks and still work normally'
+
 # Cached tarball with a matching checksum must not be downloaded again.
 cache=$work/cache2
 mkdir -p "$cache"

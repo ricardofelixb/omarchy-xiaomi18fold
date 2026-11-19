@@ -60,8 +60,8 @@ grep -qx mine "$work/src/file" && [[ -f $work/src/untracked ]] || fail 'existing
 echo 'PASS a checkout with uncommitted work is refused and left intact'
 
 git -C "$work/src" checkout -q -- file
-if out=$(FAKE_HL=0000000000000000000000000000000000000002 run); then fail "no-pin run succeeded: $out"; fi
-[[ $out == *'no hyprgrass release pins Hyprland commit 0000000000000000000000000000000000000002'* ]] || fail "unclear no-pin message: $out"
+if out=$(FAKE_HL=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa run); then fail "no-pin run succeeded: $out"; fi
+[[ $out == *'no hyprgrass release pins Hyprland commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'* ]] || fail "unclear no-pin message: $out"
 echo 'PASS an unpinned Hyprland commit fails with a clear message'
 
 mkdir -p "$work/src2"

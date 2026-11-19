@@ -23,20 +23,37 @@ import fcntl, glob, os, select, stat, struct, subprocess, time
 HOME = "/home/droid"
 FIFO = "/run/user/1000/fold-touch-flush.fifo"
 FLUSH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fold-touch-flush")
-LOG = HOME + "/.local/state/omarchy-alarm/fold-touch-flushd.log"
+LOG_DIRS, LOG_NAME = (".local", "state", "omarchy-alarm"), "fold-touch-flushd.log"
 NOWATCH = HOME + "/.config/fold-touch-flushd-no-watch"
+UID, GID = 1000, 100
 REQ_WAIT, REQ_STALE = 2.0, 1.5
 STALE_MULTI, STALE_SINGLE = 4.0, 10.0
 ABS_MT_SLOT, ABS_MT_X, ABS_MT_Y, ABS_MT_ID = 0x2F, 0x35, 0x36, 0x39
 
 
 def log(m):
-    line = f"{time.strftime('%F %T')} {m}\n"
-    new = not os.path.exists(LOG)
-    with open(LOG, "a") as f:
-        f.write(line)
-    if new:
-        os.chown(LOG, 1000, 100)
+    # Runs as root inside a droid-owned tree: open every part of the path with O_NOFOLLOW so a
+    # symlink droid plants (e.g. log -> /etc/ld.so.preload) is refused instead of written/chowned.
+    line = f"{time.strftime('%F %T')} {m}\n".encode()
+    dirfd = os.open(HOME, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        for d in LOG_DIRS:
+            nxt = os.open(d, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dirfd)
+            os.close(dirfd)
+            dirfd = nxt
+        flags = os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW
+        try:
+            fd, new = os.open(LOG_NAME, flags | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=dirfd), True
+        except FileExistsError:
+            fd, new = os.open(LOG_NAME, flags, dir_fd=dirfd), False
+    finally:
+        os.close(dirfd)
+    try:
+        os.write(fd, line)
+        if new:
+            os.fchown(fd, UID, GID)
+    finally:
+        os.close(fd)
 
 
 def ioc(d, t, n, s): return (d << 30) | (s << 16) | (ord(t) << 8) | n
@@ -97,13 +114,38 @@ def lift(dev, slots):
         os.close(fd)
 
 
+def open_fifo():
+    # Same rule as log(): the folder is droid's, so never follow a link droid planted there. Anything
+    # that is not a FIFO owned by droid is replaced (unlink removes a link, not its target); only a
+    # FIFO created here is chowned, through its open handle.
+    dirfd = os.open(os.path.dirname(FIFO), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    name = os.path.basename(FIFO)
+    try:
+        try:
+            st = os.lstat(name, dir_fd=dirfd)
+            if not (stat.S_ISFIFO(st.st_mode) and st.st_uid == UID):
+                os.unlink(name, dir_fd=dirfd)
+        except FileNotFoundError:
+            pass
+        try:
+            os.mkfifo(name, 0o600, dir_fd=dirfd)
+            new = True
+        except FileExistsError:
+            new = False
+        # RDWR: never sees EOF when writers go away
+        fd = os.open(name, os.O_RDWR | os.O_NONBLOCK | os.O_NOFOLLOW, dir_fd=dirfd)
+    finally:
+        os.close(dirfd)
+    if not stat.S_ISFIFO(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise OSError(f"{FIFO} is not a FIFO")
+    if new:
+        os.fchown(fd, UID, GID)
+    return fd
+
+
 def main():
-    if os.path.exists(FIFO) and not stat.S_ISFIFO(os.stat(FIFO).st_mode):
-        os.unlink(FIFO)
-    if not os.path.exists(FIFO):
-        os.mkfifo(FIFO, 0o600)
-    os.chown(FIFO, 1000, 100)
-    rfd = os.open(FIFO, os.O_RDWR | os.O_NONBLOCK)  # RDWR: never sees EOF when writers go away
+    rfd = open_fifo()
     buf = b""
     dev = find_dev()
     log(f"start dev={dev} fifo={FIFO}")
@@ -162,4 +204,5 @@ def main():
                 seen.pop(s, None)
 
 
-main()
+if __name__ == "__main__":
+    main()

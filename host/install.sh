@@ -575,7 +575,14 @@ install_fold_host_helpers() {
     systemctl enable --now fold-touch-sync.service || true
   fi
   if [[ -n ${T_HOME:-} && -d $T_HOME ]]; then
-    install -d "$T_HOME/.config/systemd/user"
+    # An older install may have left these folders owned by root, which stops the user creating
+    # default.target.wants. The helper walks them without following links the user could have planted.
+    run python3 -I "$SCRIPT_DIR/../lib/fix-user-dirs.py" "$T_HOME" "$T_UID" "$T_GID" \
+      .config systemd user default.target.wants || warn "could not check ownership of $T_HOME/.config/systemd"
+    # As the target user, with its parents: root-made folders would stop it creating default.target.wants.
+    run runuser -u "$TARGET_USER" -- mkdir -p "$T_HOME/.config/systemd/user"
+    # Both daemons write their log here on startup and exit if the folder is missing (fresh home, before the container exists).
+    run runuser -u "$TARGET_USER" -- mkdir -p "$T_HOME/.local/state/omarchy-alarm"
     for u in fold-clip-bridge fold-touch-flushd; do
       [[ -f $fold/systemd/user/$u.service ]] || continue
       install_user_file "$fold/systemd/user/$u.service" "$T_HOME/.config/systemd/user/$u.service" 644
@@ -591,7 +598,15 @@ EOF
       run runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$T_UID" systemctl --user enable --now fold-clip-bridge.service || true
       run runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$T_UID" systemctl --user enable --now fold-touch-flushd.service || true
     else
-      note "user manager not running; enable fold-clip-bridge / fold-touch-flushd after login"
+      # No user manager yet: make the links `systemctl --user enable` would, so both start at next login.
+      wants=$T_HOME/.config/systemd/user/default.target.wants
+      # Made as the target user: a root ln through a user-planted symlink could overwrite /usr/local/bin.
+      run runuser -u "$TARGET_USER" -- mkdir -p "$wants" || warn "could not create $wants"
+      for u in fold-clip-bridge fold-touch-flushd; do
+        [[ -f $fold/systemd/user/$u.service ]] || continue
+        run runuser -u "$TARGET_USER" -- ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service" || warn "could not enable $u; run: systemctl --user enable $u"
+      done
+      note "user manager not running; fold-clip-bridge / fold-touch-flushd start at next login"
     fi
   fi
 }
