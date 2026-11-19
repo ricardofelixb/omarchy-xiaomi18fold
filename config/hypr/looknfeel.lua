@@ -25,11 +25,7 @@ hl.config({
   misc = { render_unfocused_fps = 5 },
 })
 
-hl.config({
-  debug = {
-    fifo_pending_workaround = true,
-  },
-})
+-- Hyprland 0.57 removed debug.fifo_pending_workaround (unknown key = error banner); don't set it.
 
 hl.config({
   decoration = {
