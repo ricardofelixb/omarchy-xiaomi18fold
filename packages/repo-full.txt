@@ -4,6 +4,8 @@ cliphist
 cmake
 fuzzel
 glaze
+glm
+nwg-drawer
 go
 gtk4
 gtk4-layer-shell

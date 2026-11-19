@@ -30,8 +30,19 @@ adds to upstream files.
 - **Fix:** removed the block from `config/hypr/looknfeel.lua`; there is no replacement.
 - **Drop when:** upstream drops the key too.
 
+### Build the hyprgrass touch-gesture plugin
+
+- **Kind:** 1, useful to anyone. **Upstream candidate:** touch gestures never worked without it.
+- **Bug:** `config/hypr/touch.lua` loads `libhyprgrass.so`, but nothing built it, so no gesture worked.
+- **Fix:** new `container/bin/fold-hyprgrass-build` builds the hyprgrass commit pinned for the
+  installed Hyprland; `packages/repo-full.txt` adds `glm` and `nwg-drawer` (the swipe-down app drawer).
+- **Where:** `container/install.sh` (helper install list, `build_hyprgrass` step, `hyprgrass`
+  report entry), `config/hypr/touch.lua` (header comment), `tests/fold-hyprgrass-build-regressions.sh`.
+- **Drop when:** upstream ships an equivalent build step.
+
 ## Quick checks
 
+- `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`
 - `python3 -B tests/tool-programs-regressions.py`
 - `python3 -B tests/desktop-extras-regressions.py`

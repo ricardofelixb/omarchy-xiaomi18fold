@@ -1,5 +1,6 @@
--- Fold: touch-screen gestures via the hyprgrass plugin (built from source, pinned for Hyprland 0.56.2).
--- Plugin: ~/.local/lib/hyprland/plugins/libhyprgrass.so  (source/build: ~/src/hyprgrass, see fold-hyprgrass-build)
+-- Fold: touch-screen gestures via the hyprgrass plugin, built from source for the installed Hyprland.
+-- Plugin: ~/.local/lib/hyprland/plugins/libhyprgrass.so  (source: ~/src/hyprgrass; build/update: fold-hyprgrass-build,
+-- which picks the hyprgrass commit pinned for the installed Hyprland commit; rerun it after a Hyprland upgrade)
 -- Disable: touch ~/.config/hypr/hyprgrass-disabled && hyprctl reload   (re-enable: rm the file, reload)
 -- Hyprland loads the plugin after parsing, then re-parses the config, so the binds below
 -- only register on the second pass (when hl.plugin.hyprgrass exists).
