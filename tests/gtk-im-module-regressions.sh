@@ -31,4 +31,12 @@ bash "$ROOT/lib/gtk-im-module.sh"
 [[ $(cat "$cfg/gtk-3.0/settings.ini") == $'[Settings]\ngtk-im-module=fcitx\nx=1\n[Other]\ngtk-im-module=ibus' ]]
 [[ -L $cfg/gtk-4.0/settings.ini ]]
 [[ $(cat "$work/real/s.ini") == $'[Settings]\ngtk-im-module=fcitx\nx=1' ]]
+# GTK accepts an indented [Settings] header; a link to a missing path warns and continues.
+printf ' [Settings]\ngtk-im-module=ibus\n' > "$cfg/gtk-3.0/settings.ini"
+rm "$cfg/gtk-4.0/settings.ini"
+ln -s "$work/no/such/dir/s.ini" "$cfg/gtk-4.0/settings.ini"
+bash "$ROOT/lib/gtk-im-module.sh" 2> "$work/warn"
+[[ $(cat "$cfg/gtk-3.0/settings.ini") == $' [Settings]\ngtk-im-module=ibus' ]]
+grep -q 'gtk-4.0/settings.ini is a link' "$work/warn"
+[[ ! -e $work/no ]]
 echo 'ok   gtk-im-module merge'
