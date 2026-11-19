@@ -87,16 +87,24 @@ real_monitors() {
 # (sharp, right size), 1 on Half. monitors.lua starts at 1 and every reload resets to it.
 scale_for() { local short=$(( $1 < $2 ? $1 : $2 )); (( short >= 1000 )) && echo 2 || echo 1; }
 
-# Re-apply the scale for the connected output's mode; a no-op when it already matches.
+# Re-apply the scale for the connected output's mode; a no-op when it already matches. Omarchy
+# sets xwayland force_zero_scaling = true (X11 apps are not scaled), so at scale 2 X11 apps would
+# stay tiny: turn it off then (Hyprland scales them, a little soft) and back on at scale 1. A
+# reload resets both, and a new output starts at scale 1, so the flag follows what we last applied.
+xw_state=""
 apply_scale() {
-  local name w h scale want
+  local name w h scale want xw=""
   while read -r name w h scale; do
-    want=$(scale_for "$w" "$h")
+    want=$(scale_for "$w" "$h"); xw=$want
     [[ $scale == "$want" ]] && continue
     log "output $name is ${w}x${h}; setting scale $want"
     # hyprctl prints a harmless "expected a dispatcher" error here, the change still applies
     hyprctl dispatch "hl.monitor({ output = \"$name\", mode = \"preferred\", position = \"0x0\", scale = $want })" >/dev/null 2>&1
-  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.width) \(.height) \(.scale | round)"')
+    xw_state=""
+  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.width) \(.height) \(.scale * 1)"')
+  [[ -z $xw || $xw == "$xw_state" ]] && return
+  xw_state=$xw
+  hyprctl dispatch "hl.config({ xwayland = { force_zero_scaling = $([[ $xw == 2 ]] && echo false || echo true) } })" >/dev/null 2>&1
 }
 
 check() {
