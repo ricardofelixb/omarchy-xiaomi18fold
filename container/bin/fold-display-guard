@@ -75,6 +75,7 @@ last_popup_close=0
 last_active=''
 POPUP_NS='^(fold-window-menu|omarchy-(menu|clipboard|emojis|image-selector|network-qr|network-speedtest|disk-speedtest|reminders|keyboard-panel))$'
 POPUP_MAX_S=${FOLD_POPUP_MAX_S:-120}
+POLL_S=${FOLD_POLL_S:-10}
 declare -A popup_since=()
 
 real_monitors() {
@@ -87,7 +88,8 @@ real_monitors() {
 # (sharp, right size), 1 on Half. monitors.lua starts at 1 and every reload resets to it.
 scale_for() { local short=$(( $1 < $2 ? $1 : $2 )); (( short >= 1000 )) && echo 2 || echo 1; }
 
-# Re-apply the scale for the connected output's mode; a no-op when it already matches. Scales are
+# Re-apply the scale for the connected output's preferred mode (first of availableModes, else the
+# active size); a no-op when it already matches. Scales are
 # compared unrounded, so a fractional 1.5 or 1.25 is corrected too.
 apply_scale() {
   local name w h scale want
@@ -97,7 +99,7 @@ apply_scale() {
     log "output $name is ${w}x${h}; setting scale $want"
     # hyprctl prints a harmless "expected a dispatcher" error here, the change still applies
     hyprctl dispatch "hl.monitor({ output = \"$name\", mode = \"preferred\", position = \"0x0\", scale = $want })" >/dev/null 2>&1
-  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.width) \(.height) \(.scale * 1)"')
+  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | . as $m | ($m.availableModes[0] // "" | capture("^(?<w>[0-9]+)x(?<h>[0-9]+)") // {w: $m.width, h: $m.height}) | "\($m.name) \(.w) \(.h) \($m.scale * 1)"')
 }
 
 check() {
@@ -206,13 +208,15 @@ popup_watch() {
 }
 
 log "start instance=$HYPRLAND_INSTANCE_SIGNATURE"
-sleep 3
-check
+# Subscribe before the first check, so an output change in between is queued, not missed.
 # 9>&- : socat must not inherit the flock, or an orphaned socat blocks every later guard.
 coproc EVENTS { exec socat -U - "UNIX-CONNECT:$SOCKET" 2>/dev/null 9>&-; }
-# Event-driven, with a 10 s read timeout as the polling backstop.
+sleep 3
+check
+last_poll=$SECONDS
+# Event-driven, with a polling backstop (10 s) on elapsed time (a busy event stream must not starve it).
 while true; do
-  if IFS= read -r -t 10 -u "${EVENTS[0]}" event; then
+  if IFS= read -r -t "$POLL_S" -u "${EVENTS[0]}" event; then
     case $event in
       monitoradded*|monitorremoved*) sleep 2; check; after_output_change ;;
       configreloaded*) sleep 2; check ;;
@@ -236,7 +240,9 @@ while true; do
         fi ;;
     esac
     (( ${#popup_since[@]} )) && popup_watch
+    if (( SECONDS - last_poll >= POLL_S )); then last_poll=$SECONDS; check; fi
   elif (( $? > 128 )); then
+    last_poll=$SECONDS
     check
     popup_watch
   else

@@ -20,7 +20,7 @@ fn=$(sed -n '/^scale_for() /p;/^apply_scale() {/,/^}/p' "$ROOT/container/bin/fol
 run() { # width height current-scale -> dispatches made
   : > "$work/log"
   PATH="$work/bin:$PATH" LOG="$work/log" \
-    MON_JSON="[{\"name\":\"Virtual-1\",\"width\":$1,\"height\":$2,\"scale\":$3}]" \
+    MON_JSON="[{\"name\":\"Virtual-1\",\"width\":$1,\"height\":$2,\"scale\":$3,\"availableModes\":[${PREF:+\"$PREF\"}]}]" \
     bash -c 'log() { :; }; eval "$1"; apply_scale' _ "$fn"
   cat "$work/log"
 }
@@ -41,4 +41,23 @@ want 'Half already at 1' 1182 836 1.00 ''
 want 'Full at 1.5 is not 2' 2364 1672 1.50 2
 want 'Half at 1.25 is not 1' 1182 836 1.25 1
 want 'Full at 1.99 is not 2' 2364 1672 1.99 2
-echo 'PASS display scale: 2 on Full, 1 on Half (inner and cover), no repeat dispatch, fractional scales corrected'
+# the decision uses the preferred mode (first available), not the active one
+PREF='2364x1672@60.00Hz' want 'preferred Full while active Half' 1182 836 1.00 2
+PREF='1182x836@60.00Hz' want 'preferred Half while active Full' 2364 1672 2.00 1
+PREF='2364x1672@60.00Hz' want 'preferred Full already at 2' 1182 836 2.00 ''
+
+# event loop: subscribed before the first check, and the backstop fires on elapsed time even when
+# events keep arriving faster than the poll interval
+printf '#!/bin/sh\ntouch "$WORK/socat-started"\nwhile :; do echo workspacev2\\>\\>1; sleep 0.2; done\n' > "$work/bin/socat"
+chmod +x "$work/bin/socat"
+loop=$(sed -n '/^# Subscribe before the first check/,$p' "$ROOT/container/bin/fold-display-guard")
+: > "$work/checks"
+WORK=$work PATH="$work/bin:$PATH" FOLD_POLL_S=2 timeout 6 bash -c '
+  POLL_S=$FOLD_POLL_S; SOCKET=x; declare -A popup_since=(); last_active=""; HYPRLAND_INSTANCE_SIGNATURE=t
+  log() { :; }; sleep() { command sleep 0.3; }; close_popups() { :; }; popup_watch() { :; }; after_output_change() { :; }
+  check() { [[ -e $WORK/socat-started ]] && echo subscribed >> $WORK/checks || echo early >> $WORK/checks; }
+  eval "$1"' _ "$loop" >/dev/null 2>&1 || true
+[[ $(head -1 "$work/checks") == subscribed ]] || fail "first check ran before subscribing to events"
+(( $(wc -l < "$work/checks") >= 3 )) || fail "polling backstop starved by a busy event stream: $(wc -l < "$work/checks") checks in 6 s"
+
+echo 'PASS display scale: 2 on Full, 1 on Half (inner and cover), no repeat dispatch, fractional scales corrected, preferred mode decides, event loop subscribes first and polls on elapsed time'
