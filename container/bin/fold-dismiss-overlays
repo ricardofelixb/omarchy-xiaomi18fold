@@ -2,7 +2,7 @@
 # fold-dismiss-overlays — "回桌面": close every popup/overlay that can cover the fold's screen.
 #
 # Usage: fold-dismiss-overlays [auto|popups|desktop|status]     (default: auto)
-#   popups   close nwg-drawer, fold-window-menu, the Omarchy menu and other Omarchy shell
+#   popups   close fold-window-menu, the Omarchy menu and other Omarchy shell
 #            overlays (clipboard, emoji, image picker, QR/speed-test panels), kill stuck ones
 #   desktop  popups + show the bare desktop (switch to an empty workspace; your windows stay
 #            where they are — tap a workspace number in the bar / 4-finger swipe to go back)
@@ -39,7 +39,6 @@ close_popups() {
     [[ -n $ns ]] || continue
     [[ $ns =~ $KEEP ]] && continue
     case $ns in
-      nwg-drawer) fold-drawer close; closed=1 ;;
       fold-window-menu) fold-window-menu close; closed=1 ;;
       *)
         if [[ -n ${SHELL_PLUGIN[$ns]:-} ]]; then
@@ -56,10 +55,9 @@ close_popups() {
   if (( closed )); then
     local i
     for ((i = 0; i < 10; i++)); do
-      layers | grep -qE '^(nwg-drawer|fold-window-menu) ' || break
+      layers | grep -q '^fold-window-menu ' || break
       sleep 0.1
     done
-    if layers | grep -q '^nwg-drawer '; then log "nwg-drawer stuck; killing"; pkill -u "$(id -u)" -f '^nwg-drawer ' ; fi
     if layers | grep -q '^fold-window-menu '; then log "fold-window-menu stuck; killing"; pkill -u "$(id -u)" -f 'bin/fold-window-menu' ; fi
     # fold-ux9: the gesture that opened the popup may have lost a finger lift (hyprgrass then cancels
     # every touch); ask the phone host to lift stale touch slots (never taps; no-op if all clean)

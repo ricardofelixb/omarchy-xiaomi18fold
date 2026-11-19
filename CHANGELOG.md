@@ -32,7 +32,7 @@ Fold product versioning starts at 0.1.0.
     connector hot-plug.
 - **Clipboard bridge** (`fold-clip-bridge`): hard-link host `wayland-0` to Hyprland socket
   in arch mode so Android Terminal’s wl-copy/wl-paste work.
-- **Dock / drawer / window menu**: `fold-dock`, `fold-drawer`, `fold-window-menu` with
+- **Dock / apps menu / window menu**: `fold-dock`, `fold-drawer` (Omarchy's apps menu), `fold-window-menu` with
   4-finger gestures (3-finger kept as fallback when Android does not swallow them).
 - **Installer**: `omarchy-provision-user --first-install` so bare-metal migrations are not
   left “pending” inside nspawn; tmux session renamed to `omarchy-fold-install`.

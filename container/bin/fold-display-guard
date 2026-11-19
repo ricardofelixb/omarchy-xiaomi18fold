@@ -9,16 +9,16 @@
 #   - the shell can come up on a placeholder screen without wallpaper/bar layers;
 #   - DPMS left off while stay-awake is enabled.
 # fold-ux4 additions:
-#   - the dock (fold-dock wrapper / nwg-dock layer) and the resident app drawer daemon are
-#     brought back if they died (wrapper gave up, layer missing on the active output);
-#   - after an output swap, popups (drawer / window menu) are closed and the resident drawer
-#     is re-created on the new output, so no stale full-screen surface is left behind;
-#   - any app window opening or any workspace switch closes a leftover drawer / window menu
+#   - the dock (fold-dock wrapper / nwg-dock layer) is brought back if it died
+#     (wrapper gave up, layer missing on the active output);
+#   - after an output swap, popups (window menu, apps menu) are closed, so no stale full-screen surface
+#     is left behind;
+#   - any app window opening or any workspace switch closes a leftover window menu / apps menu
 #     (a full-screen popup over a new window looked like a frozen screen);
 #   - every hyprctl call has a timeout (a wedged IPC call must not wedge the guard);
 #   - socat no longer inherits the guard's flock (an orphan socat blocked guard restarts).
 # fold-ux9 additions:
-#   - whenever a popup layer closes (window menu, drawer, Omarchy menu/panels; any close path, also
+#   - whenever a popup layer closes (window menu, Omarchy menu/panels; any close path, also
 #     kill/crash), ask the phone host to lift touch slots whose lift Android swallowed
 #     (fold-touch-flush-req -> host fold-touch-flushd); otherwise hyprgrass can keep cancelling
 #     every touch after the gesture that opened the popup;
@@ -50,12 +50,11 @@ STAY_AWAKE="$HOME/.local/state/omarchy/indicators/stay-awake"
 OSK_HIDDEN_FLAG="$HOME/.config/omarchy-osk-start-hidden"
 OSK_AUTOSTART_FLAG="$HOME/.config/omarchy-osk-autostart"
 DOCK_OFF_FLAG="$HOME/.config/fold-dock-disabled"
-DRAWER_OFF_FLAG="$HOME/.config/fold-drawer-no-resident"
 mkdir -p "${LOG%/*}"
 hyprctl() { timeout 5 /usr/bin/hyprctl "$@"; }
 # Single instance via a pidfile (checked under a short-lived flock). fold-ux4: the old code kept
 # the flock fd open for the guard's lifetime, so every long-lived child (socat, a restarted
-# dock, the drawer daemon) inherited it and blocked all later guards after the guard died.
+# dock) inherited it and blocked all later guards after the guard died.
 PIDFILE="$XDG_RUNTIME_DIR/fold-display-guard.pid"
 exec 8>"$XDG_RUNTIME_DIR/fold-display-guard.pid.lock"
 flock -w 3 8 || exit 0
@@ -74,7 +73,7 @@ last_dock_restart=-100
 last_reload=-100
 last_popup_close=0
 last_active=''
-POPUP_NS='^(fold-window-menu|nwg-drawer|omarchy-(menu|clipboard|emojis|image-selector|network-qr|network-speedtest|disk-speedtest|reminders|keyboard-panel))$'
+POPUP_NS='^(fold-window-menu|omarchy-(menu|clipboard|emojis|image-selector|network-qr|network-speedtest|disk-speedtest|reminders|keyboard-panel))$'
 POPUP_MAX_S=${FOLD_POPUP_MAX_S:-120}
 declare -A popup_since=()
 
@@ -146,13 +145,6 @@ check() {
     fi
   fi
 
-  # Resident app drawer (fold-drawer daemon): keep it alive so the drawer opens in ~0.1 s.
-  if [[ ! -f $DRAWER_OFF_FLAG ]] && command -v fold-drawer >/dev/null &&
-     ! pgrep -u "$(id -u)" -f 'bin/fold-drawer daemon$' >/dev/null; then
-    log "fold-drawer daemon not running; starting it"
-    setsid fold-drawer daemon </dev/null >/dev/null 2>&1 &
-  fi
-
   # wvkbd exits when its output is removed; bring the keyboard back, but only when
   # the OSK is opted in. Default on the fold is the Android keyboard: never start it.
   if [[ -f $OSK_AUTOSTART_FLAG ]] && command -v omarchy-osk-toggle >/dev/null && ! pgrep -u "$(id -u)" -x 'wvkbd-(mobintl|deskintl)' >/dev/null; then
@@ -165,34 +157,20 @@ check() {
   fi
 }
 
-# Close a leftover full-screen drawer / window menu (cheap: one hyprctl call, at most 1/s).
+# Close a leftover full-screen window menu / apps menu (cheap: one hyprctl call, at most 1/s).
 close_popups() {
   (( SECONDS - last_popup_close >= 1 )) || return 0
   last_popup_close=$SECONDS
   local ls
   ls=$(hyprctl layers 2>/dev/null) || return 0
-  if grep -q 'namespace: nwg-drawer,' <<<"$ls"; then fold-drawer close; fi
   if grep -q 'namespace: fold-window-menu,' <<<"$ls"; then fold-window-menu close; fi
+  if grep -q 'namespace: omarchy-menu,' <<<"$ls"; then fold-drawer close; fi
 }
 
-# After an output swap: no popup may stay on (or for) the old output; re-create the
-# resident drawer so its next surface is sized for the new output.
-# Debounced: a swap emits a burst of events (FALLBACK added/removed, reloads), so the drawer
-# is re-created once, 5 s after the last output event.
-RESTART_TOKEN="$XDG_RUNTIME_DIR/fold-drawer-restart.token"
+# After an output swap: no popup may stay on (or for) the old output.
 after_output_change() {
   last_popup_close=0
   close_popups
-  if [[ ! -f $DRAWER_OFF_FLAG ]] && command -v fold-drawer >/dev/null; then
-    local tok=$RANDOM$RANDOM
-    echo "$tok" >"$RESTART_TOKEN"
-    (
-      sleep 5
-      [[ $(cat "$RESTART_TOKEN" 2>/dev/null) == "$tok" ]] || exit 0
-      log "output changed; re-creating resident drawer"
-      setsid fold-drawer restart </dev/null >/dev/null 2>&1
-    ) 9>&- </dev/null >/dev/null 2>&1 &
-  fi
 }
 
 # fold-ux9: close popups left open for more than POPUP_MAX_S (cheap: arithmetic unless one expired)
@@ -229,7 +207,7 @@ while true; do
         fi ;;
       openwindow\>\>*|workspacev2\>\>*) close_popups ;;
       # focus moved to a *different* real window (e.g. a dock icon focused a running app
-      # under the drawer). Empty/same address = focus bounced via a layer: ignore.
+      # under a popup). Empty/same address = focus bounced via a layer: ignore.
       activewindowv2\>\>*)
         addr=${event#activewindowv2>>}
         if [[ -n $addr && $addr != "$last_active" ]]; then

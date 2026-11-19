@@ -1,7 +1,7 @@
 #!/bin/bash
 # Fold: persistent bottom dock (nwg-dock-hyprland), respawned if it exits (e.g. AVF output hot-swap).
 # Off switch: touch ~/.config/fold-dock-disabled; then: pkill -f fold-dock; pkill -x nwg-dock-hyprland
-# Size: change -i (icon px). Launcher button (end of dock) opens fold-drawer.
+# Size: change -i (icon px). Launcher button (end of dock) opens fold-drawer (Omarchy's apps menu).
 LOG=~/.local/state/omarchy-alarm/fold-dock.log
 mkdir -p "${LOG%/*}"
 pgrep -f -x "/bin/bash $0" | grep -vx $$ | grep -q . && { echo "already running"; exit 0; }

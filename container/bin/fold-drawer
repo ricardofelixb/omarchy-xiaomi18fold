@@ -1,4 +1,12 @@
 #!/bin/bash
-# Fold: touch-friendly nwg-drawer (large icons, 4 columns for the 836 px wide screen).
-# Running it again while the drawer is open toggles it closed (nwg-drawer single-instance behaviour).
-exec nwg-drawer -wm hyprland -ovl -is 72 -c 4 -spacing 24 -term foot -fm nautilus -closebtn right "$@"
+# Fold: the app launcher is Omarchy's own apps menu (omarchy-menu, route "apps"),
+# opened from the 3/4-finger swipe down, the dock's launcher button and the window menu.
+# Usage: fold-drawer [toggle|open|close]   (daemon/restart are accepted and do nothing:
+# the Omarchy shell is already resident)
+case ${1:-toggle} in
+  toggle) exec omarchy-menu toggle apps ;;
+  open)   exec omarchy-menu summon apps ;;
+  close)  exec omarchy-menu close ;;
+  daemon|restart) exit 0 ;;
+  *) echo "usage: fold-drawer [toggle|open|close]" >&2; exit 2 ;;
+esac
