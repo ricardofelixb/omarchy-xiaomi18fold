@@ -203,8 +203,10 @@ network_with_magicdns() {
   else
     printf '%s\n' "$servers"; return 0
   fi
-  # glibc reads at most 3 nameserver lines, so keep MagicDNS plus the first two others.
-  printf 'nameserver 100.100.100.100\n%s\n' "$(printf '%s\n' "$servers" | head -n2)"
+  # glibc reads at most 3 nameserver lines, so keep MagicDNS plus the first two others
+  # (a MagicDNS entry the host already lists is not counted twice).
+  printf 'nameserver 100.100.100.100\n'
+  printf '%s\n' "$servers" | awk '$2 != "100.100.100.100" && n < 2 { print; n++ }'
   [[ -z $suffix ]] || printf 'search %s\n' "$suffix"
   printf 'options timeout:2\n'
 }
