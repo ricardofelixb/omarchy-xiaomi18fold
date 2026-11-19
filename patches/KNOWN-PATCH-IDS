@@ -1,0 +1,13 @@
+# patch-id --stable of every patch the fork has shipped, one per line: id, then the file name.
+# The updater marks commits matching these as the fork's before moving arm-port. Only ever append.
+c41a51103067b08b6f98be95179b4e18896e96f6 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch
+4cc48a04475ce3888e75cbfc36dc8c41e7fc52a9 0002-ARM-fcitx5-.local-bin-fcitx5-autostart-Debian.patch
+1be2992940d73c4cdcd7895fe825dc9026b45e7c 0003-cn-skip-mise-network-provisioning.patch
+2e118f6a34db50b31c6cb02b555c5c7abe833c83 0004-qualify-shell-colors-for-Qt-6.12.patch
+d8f99a5149c386f8d091ebcd20823c0337c7af54 0005-programs-only-tool-provisioning.patch
+ecfcd4a8164546d5c763ce85cbd529e7aeccf3df 0006-preserve-installer-home-layout.patch
+d71b7ebf24b66b0d7d3279a4ec00e26b1fd02305 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch
+a1a02dca0b138f8e19b67d79853b94d9031382dc 0003-cn-skip-mise-network-provisioning.patch
+c8ec8ede53f03478be26c4bf55560ae62638e9d6 0005-programs-only-tool-provisioning.patch
+17d2335525324fc32de9e466bc2ae96c33b5d858 0006-preserve-installer-home-layout.patch
+d40f5c336345f1b3dbee2e16e9d476cc85747a82 0007-route-update-to-fold-omarchy-update.patch

@@ -15,11 +15,12 @@ omv_current_base() {
 }
 
 # The fork's commits carry a note in refs/notes/fold (rebase copies it). Anything without one is the user's.
-omv_mark_fork() { omv_git notes --ref=fold add -f -m fork-patch "$1" >/dev/null; }
-# Marks the commits in $1..HEAD that match a shipped patch (the installer calls this after applying them).
+omv_mark_fork() { omv_git notes --ref=fold add -f -m fork-patch "$1" >/dev/null 2>&1; }
+# Marks the commits in $1..HEAD that match a patch the fork ever shipped (patches/KNOWN-PATCH-IDS plus the
+# current ones). Called before a move too, so installs made before the notes existed keep the fallback.
 omv_mark_fork_commits() {
-  local ids commit id
-  ids=$(for p in "$FOLD_PATCHES"/*.patch; do git patch-id --stable < "$p" | awk '{print $1}'; done)
+  local ids commit id p
+  ids=$({ for p in "$FOLD_PATCHES"/*.patch; do git patch-id --stable < "$p"; done; grep -v '^#' "$FOLD_PATCHES/KNOWN-PATCH-IDS" 2>/dev/null; } | awk '{print $1}')
   for commit in $(omv_git rev-list "$1..HEAD"); do
     id=$(omv_git show --format= -p "$commit" | git patch-id --stable | awk '{print $1}')
     grep -Fxq "$id" <<< "$ids" && omv_mark_fork "$commit"
@@ -52,6 +53,7 @@ omarchy_move_to() {
   if [[ $(omv_git branch --show-current) != arm-port || -n $(omv_git status --porcelain) ]]; then
     omv_warn "Omarchy $tag is out, but the Omarchy checkout is not a clean arm-port; your system is unchanged."; return 1
   fi
+  omv_mark_fork_commits "$old"
   omv_git fetch -q --depth 1 "$OMARCHY_REMOTE" "refs/tags/$tag:refs/tags/$tag" || { omv_warn "Could not fetch Omarchy $tag; your system is unchanged."; return 1; }
   new=$(omv_git rev-parse "$tag^{commit}") && tip=$(omv_git rev-parse arm-port) || return 1
   if ! omv_git rebase -q --onto "$new" "$old" arm-port >/dev/null 2>&1; then

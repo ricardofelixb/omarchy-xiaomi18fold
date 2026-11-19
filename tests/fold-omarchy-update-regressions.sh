@@ -133,7 +133,7 @@ g -C "$remote" rev-parse v1.1.0 | tr -d '\n' > "$inst/patches/BASE"
 install_fn=$(sed -n '/^clone_and_patch_omarchy() {/,/^}/p' "$ROOT/container/install.sh")
 [[ -n $install_fn ]] || fail 'clone_and_patch_omarchy not found'
 install_run() {
-  HOME=$work/inst-home ROOT=$inst OMARCHY_PATH=$work/old MIRROR=global OMARCHY_TAG=v1.1.0 FOLD_OMARCHY_REMOTE="file://$remote" \
+  HOME=${IHOME:-$work/inst-home} ROOT=${INST:-$inst} OMARCHY_PATH=${OLD:-$work/old} MIRROR=global OMARCHY_TAG=v1.1.0 FOLD_OMARCHY_REMOTE="file://$remote" \
     bash -c "set -eu; $install_fn; clone_and_patch_omarchy" 2>&1
 }
 # The target tag is already fetched but arm-port still sits on the old release.
@@ -143,4 +143,23 @@ out=$(install_run) || fail "installer could not upgrade the old checkout: $out"
 git -C "$work/old" notes --ref=fold show arm-port >/dev/null 2>&1 || fail 'installer did not mark the fork commit'
 out=$(install_run) || fail "second installer run failed: $out"
 [[ $(git -C "$work/old" rev-list --count v1.1.0..arm-port) == 1 ]] || fail 'second installer run changed the branch'
+
+# 7. An old install without notes whose move conflicts: its commits are recognised from KNOWN-PATCH-IDS
+# and the shipped patches take over; a user commit among them makes the installer refuse.
+inst2=$work/inst2; old2=$work/old2; mkdir -p "$inst2/patches" "$inst2/lib"
+cp "$ROOT/lib/omarchy-move.sh" "$inst2/lib/"
+g clone -q --depth 1 --branch v1.0.0 "file://$remote" "$old2"
+g -C "$old2" switch -q -c arm-port; echo beta-fold > "$old2/b.txt"; g -C "$old2" commit -qam 'fold patch b'
+g -C "$old2" show --format= -p HEAD | git patch-id --stable > "$inst2/patches/KNOWN-PATCH-IDS"
+g clone -q "file://$remote" "$work/scratch3"; g -C "$work/scratch3" checkout -q v1.1.0
+echo beta-fold > "$work/scratch3/b.txt"; g -C "$work/scratch3" commit -qam 'fold patch b'
+g -C "$work/scratch3" format-patch -q -1 -o "$inst2/patches"
+g -C "$remote" rev-parse v1.1.0 | tr -d '\n' > "$inst2/patches/BASE"
+echo mine > "$old2/mine.txt"; g -C "$old2" add mine.txt; g -C "$old2" commit -qm 'user commit'
+before=$(git -C "$old2" rev-parse arm-port)
+out=$(IHOME=$work/inst2-home INST=$inst2 OLD=$old2 install_run) && fail "installer replaced a conflicting checkout that holds a user commit: $out"
+[[ $(git -C "$old2" rev-parse arm-port) == "$before" && -f $old2/mine.txt ]] || fail "refused install changed the checkout: $out"
+g -C "$old2" reset -q --hard HEAD~1
+out=$(IHOME=$work/inst2-home INST=$inst2 OLD=$old2 install_run) || fail "installer could not move a conflicting old checkout: $out"
+[[ $(git -C "$old2" show arm-port:b.txt) == beta-fold && $(git -C "$old2" rev-list --count v1.1.0..arm-port) == 1 ]] || fail "conflicting old checkout not on v1.1.0 with the shipped patch: $out"
 echo 'PASS fold-omarchy-update regressions'
