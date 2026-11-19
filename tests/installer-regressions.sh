@@ -560,7 +560,7 @@ mkdir -p "$fd/ok/.local/state/omarchy-alarm" "$fd/lnk/.local/state" "$fd/lnk-dir
 ln -s "$fd/victim" "$fd/lnk/.local/state/omarchy-alarm"
 ln -s "$fd/victim/ld.so.preload" "$fd/lnk-dir/.local/state/omarchy-alarm"
 python3 -I - "$ROOT/host/fold/bin/fold-touch-flushd" "$fd" <<'PY' || fail 'fold-touch-flushd log regression failed'
-import importlib.machinery, importlib.util, os, sys
+import importlib.machinery, importlib.util, os, stat, sys
 loader = importlib.machinery.SourceFileLoader('flushd', sys.argv[1])
 mod = importlib.util.module_from_spec(importlib.util.spec_from_loader('flushd', loader))
 loader.exec_module(mod)
@@ -589,8 +589,34 @@ for home in ('/lnk', '/lnk-dir'):
     else: raise AssertionError('followed a symlinked folder: ' + home)
 assert not os.path.lexists(fd + '/victim/ld.so.preload') and not os.listdir(fd + '/victim'), os.listdir(fd + '/victim')
 assert chowned == [], chowned
+# FIFO: a planted link (to a live FIFO, or dangling) is replaced, never followed or chowned; a link
+# as the folder is refused; a droid-owned FIFO is kept; a FIFO owned by someone else is recreated.
+mod.UID = os.getuid()
+os.makedirs(fd + '/run/real'); os.symlink(fd + '/run/real', fd + '/run/lnk')
+victim = fd + '/victim/initctl'; os.mkfifo(victim)
+vino = os.stat(victim).st_ino
+mod.FIFO = fd + '/run/real/f.fifo'
+os.symlink(victim, mod.FIFO)
+chowned.clear()
+os.close(mod.open_fifo())
+assert stat.S_ISFIFO(os.lstat(mod.FIFO).st_mode) and os.stat(victim).st_ino == vino
+assert len(chowned) == 1 and chowned[0] == (mod.UID, mod.GID), chowned
+os.unlink(mod.FIFO); os.symlink(fd + '/victim/missing', mod.FIFO)
+os.close(mod.open_fifo())
+assert stat.S_ISFIFO(os.lstat(mod.FIFO).st_mode) and not os.path.lexists(fd + '/victim/missing')
+ino = os.lstat(mod.FIFO).st_ino; chowned.clear()
+os.close(mod.open_fifo())
+assert os.lstat(mod.FIFO).st_ino == ino and chowned == [], 'own FIFO must be kept untouched'
+mod.UID += 1
+os.close(mod.open_fifo())
+assert os.lstat(mod.FIFO).st_ino != ino and len(chowned) == 1, 'foreign-owned FIFO must be recreated'
+mod.FIFO = fd + '/run/lnk/f.fifo'
+try: mod.open_fifo()
+except OSError: pass
+else: raise AssertionError('followed a symlinked FIFO folder')
+assert os.listdir(fd + '/run/real') == ['f.fifo']
 PY
-pass 'fold-touch-flushd log refuses planted symlinks (file and folder) and still logs normally'
+pass 'fold-touch-flushd log and FIFO refuse planted symlinks and still work normally'
 
 # Cached tarball with a matching checksum must not be downloaded again.
 cache=$work/cache2
