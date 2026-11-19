@@ -464,8 +464,9 @@ for unit in fold-clip-bridge fold-touch-flushd; do
   [[ -f $ROOT/host/fold/bin/$unit ]] || fail "host/fold/bin/$unit missing"
   assert_has "$ROOT/host/install.sh" "install -Dm755 \"\$fold/bin/\$b\" \"/usr/local/bin/\$b\""
   grep -Eq "^  for b in .*\b$unit\b" "$ROOT/host/install.sh" || fail "host/install.sh must install $unit to /usr/local/bin"
-  assert_has "$ROOT/host/install.sh" 'ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service"'
+  assert_has "$ROOT/host/install.sh" 'runuser -u "$TARGET_USER" -- ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service"'
 done
+assert_has "$ROOT/host/install.sh" 'runuser -u "$TARGET_USER" -- mkdir -p "$wants"'
 assert_has "$ROOT/host/install.sh" 'wants=$T_HOME/.config/systemd/user/default.target.wants'
 pass 'fold user units point at /usr/local/bin and are enabled without a running user manager'
 

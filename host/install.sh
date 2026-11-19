@@ -593,13 +593,13 @@ EOF
     else
       # No user manager yet: make the links `systemctl --user enable` would, so both start at next login.
       wants=$T_HOME/.config/systemd/user/default.target.wants
-      ensure_user_dir "$T_HOME/.config/systemd/user/default.target.wants"
+      # Made as the target user: a root ln through a user-planted symlink could overwrite /usr/local/bin.
+      run runuser -u "$TARGET_USER" -- mkdir -p "$wants" || warn "could not create $wants"
       for u in fold-clip-bridge fold-touch-flushd; do
         [[ -f $fold/systemd/user/$u.service ]] || continue
-        run ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service"
-        run chown -h "$T_UID:$T_GID" "$wants/$u.service"
+        run runuser -u "$TARGET_USER" -- ln -sfn "$T_HOME/.config/systemd/user/$u.service" "$wants/$u.service" || warn "could not enable $u; run: systemctl --user enable $u"
       done
-      note "user manager not running; fold-clip-bridge / fold-touch-flushd are enabled for next login"
+      note "user manager not running; fold-clip-bridge / fold-touch-flushd start at next login"
     fi
   fi
 }
