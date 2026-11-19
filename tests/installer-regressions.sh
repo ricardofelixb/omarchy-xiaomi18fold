@@ -163,6 +163,19 @@ for m in global cn; do
 done
 pass 'Tailscale on the host puts 100.100.100.100 first (global and CN), keeps other servers, adds timeout and search'
 
+# glibc uses 3 nameservers at most: MagicDNS plus the first two host servers.
+r=$work/ts-three; mkdir -p "$r/etc"
+printf 'nameserver 9.9.9.9\nnameserver 8.8.4.4\nnameserver 4.4.4.4\n' > "$work/host-three"
+MIRROR=global; network_init >/dev/null
+ln -sf "$work/tailscale-stub" "$bin/tailscale"
+( PATH=$bin; network_resolv_config "$r" "$work/host-three" "$work/uplink" )
+rm -f "$bin/tailscale"
+[[ $(nameservers "$r/etc/resolv.conf" | tr '\n' ' ') == '100.100.100.100 9.9.9.9 8.8.4.4 ' ]] || fail 'MagicDNS plus two host servers only'
+r=$work/ts-three-off; mkdir -p "$r/etc"
+( PATH=$bin; network_resolv_config "$r" "$work/host-three" "$work/uplink" )
+[[ $(nameservers "$r/etc/resolv.conf" | wc -l) == 3 ]] || fail 'without tailscale all host servers are kept'
+pass 'with Tailscale the file lists at most three nameservers (MagicDNS + first two)'
+
 # Inside Arch there is no tailscale: the CN rewrite keeps the MagicDNS entry and search suffix.
 r=$work/ts-keep; mkdir -p "$r/etc"
 printf 'nameserver 100.100.100.100\nnameserver 1.1.1.1\nsearch tail1234.ts.net\noptions timeout:2\n' > "$work/existing-resolv"
