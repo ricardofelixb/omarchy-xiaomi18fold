@@ -1,21 +1,12 @@
 #!/bin/bash
-# Fold: touch-friendly nwg-drawer (large icons, 4 columns for the 836 px wide screen).
-# Usage: fold-drawer daemon|open|close|toggle|restart
-#   daemon   keep a hidden resident drawer (fold-display-guard keeps it alive; process stays
-#            "bin/fold-drawer daemon" so the guard's pgrep sees it)
-#   open/close/toggle  act on the resident drawer; without one, open/toggle start a one-shot drawer
-#   restart  re-create the resident drawer (after an output change)
-args=(-wm hyprland -ovl -is 72 -c 4 -spacing 24 -term foot -fm nautilus -closebtn right)
-uid=$(id -u)
-resident() { pgrep -u "$uid" -f '^nwg-drawer .* -r$' >/dev/null; }
-oneshot() { pgrep -u "$uid" -f '^nwg-drawer ' >/dev/null && ! resident; }
-
+# Fold: the app launcher is Omarchy's own apps menu (omarchy-menu, route "apps"),
+# opened from the 3/4-finger swipe down, the dock's launcher button and the window menu.
+# Usage: fold-drawer [toggle|open|close]   (daemon/restart are accepted and do nothing:
+# the Omarchy shell is already resident)
 case ${1:-toggle} in
-  daemon)  resident && exit 0; nwg-drawer "${args[@]}" -r ;;
-  open)    if resident; then nwg-drawer -open; elif ! oneshot; then exec nwg-drawer "${args[@]}"; fi ;;
-  close)   if resident; then nwg-drawer -close; else pkill -u "$uid" -f '^nwg-drawer ' || true; fi ;;
-  toggle)  if resident; then nwg-drawer; elif oneshot; then pkill -u "$uid" -f '^nwg-drawer '; else exec nwg-drawer "${args[@]}"; fi ;;
-  restart) pkill -u "$uid" -f 'bin/fold-drawer daemon$'; pkill -u "$uid" -f '^nwg-drawer '; sleep 0.5
-           setsid "$0" daemon </dev/null >/dev/null 2>&1 & ;;
-  *) echo "usage: fold-drawer daemon|open|close|toggle|restart" >&2; exit 2 ;;
+  toggle) exec omarchy-menu toggle apps ;;
+  open)   exec omarchy-menu summon apps ;;
+  close)  exec omarchy-menu close ;;
+  daemon|restart) exit 0 ;;
+  *) echo "usage: fold-drawer [toggle|open|close]" >&2; exit 2 ;;
 esac

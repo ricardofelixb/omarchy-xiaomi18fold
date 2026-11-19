@@ -35,7 +35,7 @@ adds to upstream files.
 - **Kind:** 1, useful to anyone. **Upstream candidate:** touch gestures never worked without it.
 - **Bug:** `config/hypr/touch.lua` loads `libhyprgrass.so`, but nothing built it, so no gesture worked.
 - **Fix:** new `container/bin/fold-hyprgrass-build` builds the hyprgrass commit pinned for the
-  installed Hyprland; `packages/repo-full.txt` adds `glm` and `nwg-drawer` (the swipe-down app drawer).
+  installed Hyprland; `packages/repo-full.txt` adds `glm`.
 - **Where:** `container/install.sh` (helper install list, `build_hyprgrass` step, `hyprgrass`
   report entry), `config/hypr/touch.lua` (header comment), `tests/fold-hyprgrass-build-regressions.sh`.
 - **Drop when:** upstream ships an equivalent build step.
@@ -43,9 +43,9 @@ adds to upstream files.
 ### `fold-drawer` subcommands
 
 - **Kind:** 1, useful to anyone. **Upstream candidate:** the guard looped, opening a drawer every pass.
-- **Bug:** `fold-drawer` passed `daemon`/`open`/`close`/`toggle`/`restart` to `nwg-drawer`, which opened a visible drawer for each; the guard never saw its daemon (exec renamed it) and started another every pass. Latent until `nwg-drawer` entered `packages/repo-full.txt`.
-- **Fix:** `container/bin/fold-drawer` implements the subcommands (hidden resident drawer, open/close/toggle on it, restart); `config/hypr/autostart.lua` comment says the guard starts the resident drawer.
-- **Where:** `container/bin/fold-drawer`, `tests/fold-drawer-regressions.sh`.
+- **Bug:** `fold-drawer` passed `daemon`/`open`/`close`/`toggle`/`restart` to `nwg-drawer`, which opened a visible drawer for each; the guard never saw its daemon (exec renamed it) and started another every pass.
+- **Fix:** `container/bin/fold-drawer` now drives Omarchy's own apps menu (`omarchy-menu toggle|summon apps`, `close`); `daemon`/`restart` do nothing. nwg-drawer and its keepalive in `fold-display-guard` and `fold-dismiss-overlays` are gone.
+- **Where:** `container/bin/fold-drawer`, `container/bin/fold-display-guard`, `container/bin/fold-dismiss-overlays`, `container/bin/fold-session-rescue`, `tests/fold-drawer-regressions.sh`.
 - **Drop when:** upstream fixes `fold-drawer` the same way.
 
 ## Quick checks

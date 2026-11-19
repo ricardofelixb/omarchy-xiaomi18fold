@@ -61,7 +61,7 @@ hl.config({
 --
 --   4 fingers  ← / →  next / previous workspace       (recommended; also 3 fingers)
 --   4 fingers  ↑      回桌面: close popups; if none open, show the empty desktop (fold-dismiss-overlays)
---   4 fingers  ↓      app drawer toggle                (also 3 fingers ↓)
+--   4 fingers  ↓      apps menu toggle                 (also 3 fingers ↓)
 --   4 fingers  hold   window-management popup          (also 3 fingers hold)
 --   3 fingers  ↑      Omarchy menu
 -- Direction follows the content, like paging on a phone home screen (same targets as Super+Tab).
@@ -74,7 +74,7 @@ ws(3)
 
 bind({ pattern = { kind = "swipe", fingers = 4, direction = "up" }, action = hl.dsp.exec_cmd("fold-dismiss-overlays auto") })
 
--- App drawer (resident nwg-drawer, toggles).
+-- App launcher (Omarchy's apps menu, toggles).
 bind({ pattern = { kind = "swipe", fingers = 4, direction = "down" }, action = hl.dsp.exec_cmd("fold-drawer toggle") })
 bind({ pattern = { kind = "swipe", fingers = 3, direction = "down" }, action = hl.dsp.exec_cmd("fold-drawer toggle") })
 

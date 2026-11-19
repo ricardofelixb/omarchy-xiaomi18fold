@@ -16,11 +16,9 @@ end
 -- missing shell layers, DPMS with stay-awake). Log: ~/.local/state/omarchy-alarm/fold-display-guard.log
 o.launch_on_start("fold-display-guard")
 
--- Fold: persistent bottom dock (nwg-dock-hyprland, 52 px icons, launcher button -> fold-drawer),
+-- Fold: persistent bottom dock (nwg-dock-hyprland, 52 px icons, launcher button -> Omarchy apps menu via fold-drawer),
 -- respawned by the wrapper if it exits. Off: touch ~/.config/fold-dock-disabled; pkill -f bin/fold-dock; pkill -f nwg-dock-hyprland
 o.launch_on_start("fold-dock")
 
--- fold-ux4: the app drawer stays resident (opens in ~0.1 s instead of ~0.9 s). fold-display-guard
--- starts the hidden resident drawer (fold-drawer daemon) and restarts it if it dies, so there is no
--- launch here. Off: touch ~/.config/fold-drawer-no-resident; fold-drawer restart
--- Open on demand: dock grid / fold-drawer toggle.
+-- The app launcher is Omarchy's own apps menu (omarchy-menu, route "apps"); the Omarchy shell is
+-- already resident, so nothing is launched here. Open on demand: dock launcher button / fold-drawer toggle.
