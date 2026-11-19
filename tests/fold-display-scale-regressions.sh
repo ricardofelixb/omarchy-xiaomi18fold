@@ -66,16 +66,20 @@ PATH="$work/bin:$PATH" LOG="$work/log" STATE="$work/state" ADJ=1.83 bash -c 'log
 
 # event loop: subscribed before the first check, and the backstop fires on elapsed time even when
 # events keep arriving faster than the poll interval
-printf '#!/bin/sh\ntouch "$WORK/socat-started"\nwhile :; do echo workspacev2\\>\\>1; sleep 0.2; done\n' > "$work/bin/socat"
+printf '#!/bin/sh\n# like socat: fail at once when the socket is missing\nfor a; do :; done; [ -S "${a#UNIX-CONNECT:}" ] || exit 1\ntouch "$WORK/socat-started"\nwhile :; do echo workspacev2\\>\\>1; sleep 0.2; done\n' > "$work/bin/socat"
 chmod +x "$work/bin/socat"
 loop=$(sed -n '/^# Subscribe before the first check/,$p' "$ROOT/container/bin/fold-display-guard")
 : > "$work/checks"
+# the socket appears one second after the guard starts (Hyprland still starting)
+(command sleep 1; exec python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); time.sleep(8)' "$work/ev.sock") &
+sockpid=$!
 WORK=$work PATH="$work/bin:$PATH" FOLD_POLL_S=2 timeout 6 bash -c '
-  POLL_S=$FOLD_POLL_S; SOCKET=x; declare -A popup_since=(); last_active=""; HYPRLAND_INSTANCE_SIGNATURE=t
+  POLL_S=$FOLD_POLL_S; SOCKET=$WORK/ev.sock; declare -A popup_since=(); last_active=""; HYPRLAND_INSTANCE_SIGNATURE=t
   log() { :; }; sleep() { command sleep 0.3; }; close_popups() { :; }; popup_watch() { :; }; after_output_change() { :; }
   check() { [[ -e $WORK/socat-started ]] && echo subscribed >> $WORK/checks || echo early >> $WORK/checks; }
   eval "$1"' _ "$loop" >/dev/null 2>&1 || true
+kill "$sockpid" 2>/dev/null || true
 [[ $(head -1 "$work/checks") == subscribed ]] || fail "first check ran before subscribing to events"
-(( $(wc -l < "$work/checks") >= 3 )) || fail "polling backstop starved by a busy event stream: $(wc -l < "$work/checks") checks in 6 s"
+(( $(wc -l < "$work/checks") >= 3 )) || fail "guard died or polling backstop starved by a busy event stream: $(wc -l < "$work/checks") checks in 6 s"
 
 echo 'PASS display scale: 2 on Full, 1 on Half (inner and cover), no repeat dispatch, fractional scales corrected, event loop subscribes first and polls on elapsed time'

@@ -215,7 +215,10 @@ popup_watch() {
 }
 
 log "start instance=$HYPRLAND_INSTANCE_SIGNATURE"
-# Subscribe before the first check, so an output change in between is queued, not missed.
+# Subscribe before the first check, so an output change in between is queued, not missed. The
+# socket may not exist yet right after Hyprland starts (socat would exit and EVENTS be unset): wait.
+for _ in $(seq 60); do [[ -S $SOCKET ]] && break; sleep 1; done
+[[ -S $SOCKET ]] || { log "event socket $SOCKET never appeared; exiting"; exit 0; }
 # 9>&- : socat must not inherit the flock, or an orphaned socat blocks every later guard.
 coproc EVENTS { exec socat -U - "UNIX-CONNECT:$SOCKET" 2>/dev/null 9>&-; }
 sleep 3
