@@ -9,7 +9,7 @@ trap 'rm -rf -- "$work"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 mkdir "$work/bin"
-printf '#!/bin/sh\necho "$*" >> "$LOG"\n' > "$work/bin/nwg-drawer"
+printf '#!/bin/sh\necho "nwg-drawer $*" >> "$LOG"\n' > "$work/bin/nwg-drawer"
 printf '#!/bin/sh\necho "pkill $*" >> "$LOG"\n' > "$work/bin/pkill"
 # pgrep sees the drawer state in $STATE: none, resident or oneshot.
 cat > "$work/bin/pgrep" <<'STUB'
@@ -34,8 +34,8 @@ run() {
 expect() { # description state subcommand pattern
   local calls; calls=$(run "$2" "$3")
   grep -Eq -- "$4" <<<"$calls" || fail "$1: expected /$4/, got: ${calls:-nothing}"
-  if grep -Eq -- ' (daemon|open|close|toggle|restart)( |$)|^(daemon|open|close|toggle|restart)( |$)' <<<"$calls"; then
-    fail "$1: a subcommand word reached nwg-drawer or pkill's nwg-drawer call: $calls"
+  if grep -E -- '^nwg-drawer ' <<<"$calls" | grep -Eq -- ' (daemon|open|close|toggle|restart)( |$)'; then
+    fail "$1: a subcommand word reached nwg-drawer: $calls"
   fi
 }
 none() { # description state subcommand
@@ -43,18 +43,19 @@ none() { # description state subcommand
   [[ -z $calls ]] || fail "$1: expected no calls, got: $calls"
 }
 
-expect 'daemon starts a resident drawer' none daemon '^-wm hyprland .* -closebtn right -r$'
+expect 'daemon starts a resident drawer' none daemon '^nwg-drawer -wm hyprland .* -closebtn right -r$'
 none   'daemon does nothing when resident' resident daemon
-expect 'open on a resident drawer' resident open '^-open$'
-expect 'open without one starts a one-shot' none open '^-wm hyprland .* -closebtn right$'
+expect 'open on a resident drawer' resident open '^nwg-drawer -open$'
+expect 'open without one starts a one-shot' none open '^nwg-drawer -wm hyprland .* -closebtn right$'
 none   'open with a one-shot already up does nothing' oneshot open
-expect 'close on a resident drawer' resident close '^-close$'
+expect 'close on a resident drawer' resident close '^nwg-drawer -close$'
 expect 'close with a one-shot kills it' oneshot close '^pkill .*\^nwg-drawer '
-expect 'toggle on a resident drawer' resident toggle '^$'
-expect 'toggle without one starts a one-shot' none toggle '^-wm hyprland .* -closebtn right$'
+expect 'toggle on a resident drawer' resident toggle '^nwg-drawer $'
+[[ $(run resident toggle) == 'nwg-drawer ' ]] || fail 'resident toggle must make exactly one argument-less nwg-drawer call'
+expect 'toggle without one starts a one-shot' none toggle '^nwg-drawer -wm hyprland .* -closebtn right$'
 expect 'toggle with a one-shot closes it' oneshot toggle '^pkill .*\^nwg-drawer '
-expect 'no argument is toggle' none '' '^-wm hyprland '
-expect 'restart kills then starts a resident' none restart '^-wm hyprland .* -r$'
+expect 'no argument is toggle' none '' '^nwg-drawer -wm hyprland '
+expect 'restart kills then starts a resident' none restart '^nwg-drawer -wm hyprland .* -r$'
 : > "$work/log"
 [[ $(PATH="$work/bin:$PATH" LOG="$work/log" STATE=none bash "$ROOT/container/bin/fold-drawer" bogus 2>&1; echo "rc=$?") == *'rc=2' ]] || fail 'unknown subcommand must exit 2'
 [[ ! -s $work/log ]] || fail 'unknown subcommand reached nwg-drawer'
