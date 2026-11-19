@@ -70,7 +70,7 @@ run_migrations() {
   while read -r name; do
     [[ -n $name ]] || continue
     if grep -Eq "^${name%.sh}([[:space:]]|\$)" "$FOLD_SKIP_FILE" 2>/dev/null; then
-      echo "Skipping migration ${name%.sh} (boot/kernel, not used in the container)"
+      echo "Skipping migration ${name%.sh} (on the fold skip list, marked done)"
       touch "$MIGRATION_STATE/$name"; continue
     fi
     echo -e "\e[32m\nRunning migration (${name%.sh})\e[0m"
