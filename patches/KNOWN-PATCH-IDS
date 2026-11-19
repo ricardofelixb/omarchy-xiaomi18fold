@@ -1,13 +1,13 @@
-# patch-id --stable of every patch the fork has shipped, one per line: id, then the file name.
-# The updater marks commits matching these as the fork's before moving arm-port. Only ever append.
-c41a51103067b08b6f98be95179b4e18896e96f6 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch
-4cc48a04475ce3888e75cbfc36dc8c41e7fc52a9 0002-ARM-fcitx5-.local-bin-fcitx5-autostart-Debian.patch
-1be2992940d73c4cdcd7895fe825dc9026b45e7c 0003-cn-skip-mise-network-provisioning.patch
-2e118f6a34db50b31c6cb02b555c5c7abe833c83 0004-qualify-shell-colors-for-Qt-6.12.patch
-d8f99a5149c386f8d091ebcd20823c0337c7af54 0005-programs-only-tool-provisioning.patch
-ecfcd4a8164546d5c763ce85cbd529e7aeccf3df 0006-preserve-installer-home-layout.patch
-d71b7ebf24b66b0d7d3279a4ec00e26b1fd02305 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch
-a1a02dca0b138f8e19b67d79853b94d9031382dc 0003-cn-skip-mise-network-provisioning.patch
-c8ec8ede53f03478be26c4bf55560ae62638e9d6 0005-programs-only-tool-provisioning.patch
-17d2335525324fc32de9e466bc2ae96c33b5d858 0006-preserve-installer-home-layout.patch
-d40f5c336345f1b3dbee2e16e9d476cc85747a82 0007-route-update-to-fold-omarchy-update.patch
+# Change id (lib/omarchy-move.sh omv_change_id: changed lines, whitespace included) of every patch the fork
+# has shipped, one per line: id, then the file name. The updater marks commits matching these as the fork's
+# before moving arm-port. Only ever append.
+e7be3824cacec643d89fffa7e5b59994d97f5e6e 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch
+4c0a15baa658816add9afaf0c1cd2168efa2fa6f 0002-ARM-fcitx5-.local-bin-fcitx5-autostart-Debian.patch
+bc87d7195893a783ba01e37da7a4473dd74b9970 0003-cn-skip-mise-network-provisioning.patch
+8db20d7bb4728196682df22de4f785ba01a2e39a 0004-qualify-shell-colors-for-Qt-6.12.patch
+0bb74c2b217e530dbec6b0a74a6dbbf931be9bfa 0005-programs-only-tool-provisioning.patch
+e05c130050e5ed6f34cc20a99003c4aa337448c2 0006-preserve-installer-home-layout.patch
+d362e3ac71d35db6b7ab1c37befa67205ad274ba 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch
+80c665e94f5fd67e672023d38eeb3f8154673d95 0003-cn-skip-mise-network-provisioning.patch
+f615437bea8b0e85c3d6809e0d5be8940f661582 0005-programs-only-tool-provisioning.patch
+4d3e47536b1f7557fd2353260596771b1c1db8a1 0007-route-update-to-fold-omarchy-update.patch

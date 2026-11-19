@@ -150,11 +150,17 @@ inst2=$work/inst2; old2=$work/old2; mkdir -p "$inst2/patches" "$inst2/lib"
 cp "$ROOT/lib/omarchy-move.sh" "$inst2/lib/"
 g clone -q --depth 1 --branch v1.0.0 "file://$remote" "$old2"
 g -C "$old2" switch -q -c arm-port; echo beta-fold > "$old2/b.txt"; g -C "$old2" commit -qam 'fold patch b'
-g -C "$old2" show --format= -p HEAD | git patch-id --stable > "$inst2/patches/KNOWN-PATCH-IDS"
+g -C "$old2" show --format= -p HEAD | (source "$ROOT/lib/omarchy-move.sh"; omv_change_id > "$inst2/patches/KNOWN-PATCH-IDS")
 g clone -q "file://$remote" "$work/scratch3"; g -C "$work/scratch3" checkout -q v1.1.0
 echo beta-fold > "$work/scratch3/b.txt"; g -C "$work/scratch3" commit -qam 'fold patch b'
 g -C "$work/scratch3" format-patch -q -1 -o "$inst2/patches"
 g -C "$remote" rev-parse v1.1.0 | tr -d '\n' > "$inst2/patches/BASE"
+# A whitespace-only edit of a fork commit is the user's change: the fallback must not replace it.
+echo 'beta- fold' > "$old2/b.txt"; g -C "$old2" commit -qa --amend --no-edit
+before=$(git -C "$old2" rev-parse arm-port)
+out=$(IHOME=$work/inst2-home INST=$inst2 OLD=$old2 install_run) && fail "installer replaced a whitespace-edited fork commit: $out"
+[[ $(git -C "$old2" rev-parse arm-port) == "$before" && $(git -C "$old2" show arm-port:b.txt) == 'beta- fold' ]] || fail "refused install changed the checkout: $out"
+echo beta-fold > "$old2/b.txt"; g -C "$old2" commit -qa --amend --no-edit
 echo mine > "$old2/mine.txt"; g -C "$old2" add mine.txt; g -C "$old2" commit -qm 'user commit'
 before=$(git -C "$old2" rev-parse arm-port)
 out=$(IHOME=$work/inst2-home INST=$inst2 OLD=$old2 install_run) && fail "installer replaced a conflicting checkout that holds a user commit: $out"

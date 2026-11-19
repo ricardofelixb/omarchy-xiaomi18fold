@@ -16,13 +16,26 @@ omv_current_base() {
 
 # The fork's commits carry a note in refs/notes/fold (rebase copies it). Anything without one is the user's.
 omv_mark_fork() { omv_git notes --ref=fold add -f -m fork-patch "$1" >/dev/null 2>&1; }
+# Hash of the changed lines of a diff on stdin, whitespace included and context ignored (git patch-id
+# strips whitespace, and old patch files have other context than the commits made from them). With $1=file,
+# a trailing format-patch signature ("-- " and the git version) is dropped first.
+omv_change_id() {
+  awk -v sig="${1:-}" '{l[NR]=$0} END {
+    n = NR; while (n > 0 && l[n] == "") n--
+    if (sig == "file" && n >= 2 && l[n-1] == "-- ") n -= 2
+    for (i = 1; i <= n; i++) {
+      if (l[i] ~ /^diff --git/) on = 1
+      if (on && l[i] ~ /^(diff --git|[-+]|(old|new|deleted file|new file) mode)/) print l[i]
+    }
+  }' | sha1sum | cut -d' ' -f1
+}
 # Marks the commits in $1..HEAD that match a patch the fork ever shipped (patches/KNOWN-PATCH-IDS plus the
 # current ones). Called before a move too, so installs made before the notes existed keep the fallback.
 omv_mark_fork_commits() {
   local ids commit id p
-  ids=$({ for p in "$FOLD_PATCHES"/*.patch; do git patch-id --stable < "$p"; done; grep -v '^#' "$FOLD_PATCHES/KNOWN-PATCH-IDS" 2>/dev/null; } | awk '{print $1}')
+  ids=$({ for p in "$FOLD_PATCHES"/*.patch; do omv_change_id file < "$p"; done; grep -v '^#' "$FOLD_PATCHES/KNOWN-PATCH-IDS" 2>/dev/null | awk '{print $1}'; })
   for commit in $(omv_git rev-list "$1..HEAD"); do
-    id=$(omv_git show --format= -p "$commit" | git patch-id --stable | awk '{print $1}')
+    id=$(omv_git show --format= -p "$commit" | omv_change_id)
     grep -Fxq "$id" <<< "$ids" && omv_mark_fork "$commit"
   done
   return 0
