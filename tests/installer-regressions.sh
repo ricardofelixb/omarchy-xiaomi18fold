@@ -460,9 +460,10 @@ pass 'existing Arch rootfs is reused (no extraction) and DNS is checked before p
 # enabled even when no user manager is running (a missing path gave status=203/EXEC; a skipped enable
 # left the clipboard bridge off, so Android's wl-paste hung on a dead wayland-0).
 for unit in fold-clip-bridge fold-touch-flushd; do
-  # fold-touch-flushd needs root for /dev/input, so its unit goes through the installer's sudoers entry.
-  grep -Eq "^ExecStart=(/usr/bin/sudo -n )?/usr/local/bin/$unit\$" "$ROOT/host/fold/systemd/user/$unit.service" ||
-    fail "$unit.service must start /usr/local/bin/$unit (optionally via /usr/bin/sudo -n)"
+  # fold-touch-flushd needs root for /dev/input, so its unit must go through the installer's sudoers entry.
+  prefix=''; [[ $unit != fold-touch-flushd ]] || prefix='/usr/bin/sudo -n '
+  grep -qxF "ExecStart=$prefix/usr/local/bin/$unit" "$ROOT/host/fold/systemd/user/$unit.service" ||
+    fail "$unit.service must be exactly ExecStart=$prefix/usr/local/bin/$unit"
   [[ -f $ROOT/host/fold/bin/$unit ]] || fail "host/fold/bin/$unit missing"
   assert_has "$ROOT/host/install.sh" "install -Dm755 \"\$fold/bin/\$b\" \"/usr/local/bin/\$b\""
   grep -Eq "^  for b in .*\b$unit\b" "$ROOT/host/install.sh" || fail "host/install.sh must install $unit to /usr/local/bin"
@@ -524,6 +525,19 @@ STUBS
     [[ -L $fh/home/.config/systemd/user/default.target.wants/$unit.service ]] || fail "$unit not enabled on a $mode home"
   done
   assert_lacks "$fh/log" 'could not'
+  # Both daemons log into this folder at startup and die if it is missing: open the logs the way they do.
+  local st=$fh/home/.local/state/omarchy-alarm
+  [[ -d $st ]] || fail "$mode home: $st not created, the fold services would exit with FileNotFoundError"
+  : >> "$st/fold-clip-bridge.log" || fail "$mode home: fold-clip-bridge cannot open its log"
+  python3 -I - "$ROOT/host/fold/bin/fold-touch-flushd" "$fh/home" <<'PY' || fail "$mode home: fold-touch-flushd cannot open its log"
+import importlib.machinery, importlib.util, os, sys
+loader = importlib.machinery.SourceFileLoader('flushd', sys.argv[1])
+mod = importlib.util.module_from_spec(importlib.util.spec_from_loader('flushd', loader))
+loader.exec_module(mod)
+os.fchown = lambda f, u, g: None
+mod.HOME = sys.argv[2]
+mod.log('start')
+PY
 }
 fold_home_case fresh
 fold_home_case upgrade

@@ -581,6 +581,8 @@ install_fold_host_helpers() {
       .config systemd user default.target.wants || warn "could not check ownership of $T_HOME/.config/systemd"
     # As the target user, with its parents: root-made folders would stop it creating default.target.wants.
     run runuser -u "$TARGET_USER" -- mkdir -p "$T_HOME/.config/systemd/user"
+    # Both daemons write their log here on startup and exit if the folder is missing (fresh home, before the container exists).
+    run runuser -u "$TARGET_USER" -- mkdir -p "$T_HOME/.local/state/omarchy-alarm"
     for u in fold-clip-bridge fold-touch-flushd; do
       [[ -f $fold/systemd/user/$u.service ]] || continue
       install_user_file "$fold/systemd/user/$u.service" "$T_HOME/.config/systemd/user/$u.service" 644
