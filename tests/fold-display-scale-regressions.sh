@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # Regressions for the display guard's monitor scale: scale 2 for the Terminal app's Full display
 # resolution, 1 for Half, and a dispatch only when the scale differs (a repeat would loop on the
-# configreloaded event it causes). Fractional scales are compared as they are, not rounded. The
-# XWayland flag follows the scale: Omarchy sets force_zero_scaling = true, which leaves X11 apps
-# (xterm's bitmap fonts) at physical-pixel size, tiny at scale 2.
+# configreloaded event it causes). Fractional scales are compared as they are, not rounded.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
@@ -18,23 +16,18 @@ if [ "$1" = dispatch ]; then echo "$2" >> "$LOG"; else printf '%s\n' "$MON_JSON"
 STUB
 chmod +x "$work/bin/hyprctl"
 
-fn=$(sed -n '/^scale_for() /p;/^xw_state=/p;/^apply_scale() {/,/^}/p' "$ROOT/container/bin/fold-display-guard")
+fn=$(sed -n '/^scale_for() /p;/^apply_scale() {/,/^}/p' "$ROOT/container/bin/fold-display-guard")
 run() { # width height current-scale -> dispatches made
   : > "$work/log"
   PATH="$work/bin:$PATH" LOG="$work/log" \
     MON_JSON="[{\"name\":\"Virtual-1\",\"width\":$1,\"height\":$2,\"scale\":$3}]" \
-    bash -c 'log() { :; }; eval "$1"; apply_scale; ${REPEAT:+apply_scale}' _ "$fn"
+    bash -c 'log() { :; }; eval "$1"; apply_scale' _ "$fn"
   cat "$work/log"
 }
 want() { # description width height current-scale expected-scale ("" = no dispatch)
-  local got; got=$(run "$2" "$3" "$4" | grep -v force_zero_scaling || true)
+  local got; got=$(run "$2" "$3" "$4")
   if [[ -z $5 ]]; then [[ -z $got ]] || fail "$1: expected no dispatch, got: $got"; return; fi
   [[ $got == *'output = "Virtual-1"'*"scale = $5 })"* ]] || fail "$1: expected scale $5, got: ${got:-nothing}"
-}
-xw() { # description width height current-scale expected force_zero_scaling value ("" = none)
-  local got; got=$(run "$2" "$3" "$4")
-  if [[ -z $5 ]]; then [[ $got != *force_zero_scaling* ]] || fail "$1: expected no xwayland change, got: $got"; return; fi
-  [[ $got == *"force_zero_scaling = $5 "* ]] || fail "$1: expected force_zero_scaling = $5, got: ${got:-nothing}"
 }
 
 want 'inner Full landscape' 2364 1672 1.00 2
@@ -48,10 +41,4 @@ want 'Half already at 1' 1182 836 1.00 ''
 want 'Full at 1.5 is not 2' 2364 1672 1.50 2
 want 'Half at 1.25 is not 1' 1182 836 1.25 1
 want 'Full at 1.99 is not 2' 2364 1672 1.99 2
-xw 'Full turns X11 scaling on' 2364 1672 1.00 false
-xw 'Full at 2 after a reload keeps it' 2364 1672 2.00 false
-xw 'Half turns it back off' 1182 836 2.00 true
-xw 'Half at 1 after a reload sets the default' 1182 836 1.00 true
-# the flag is sent once while nothing changes (a reload resets it, but also the scale, which re-sends)
-got=$(REPEAT=1 run 2364 1672 2.00); [[ $(grep -c force_zero_scaling <<<"$got") == 1 ]] || fail "xwayland flag repeated: $got"
-echo 'PASS display scale: 2 on Full, 1 on Half (inner and cover), no repeat dispatch, fractional scales corrected, X11 scaling follows'
+echo 'PASS display scale: 2 on Full, 1 on Half (inner and cover), no repeat dispatch, fractional scales corrected'
