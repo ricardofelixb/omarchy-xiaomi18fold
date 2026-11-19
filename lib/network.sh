@@ -190,6 +190,23 @@ network_apt_update() {
 
 # nspawn must not copy a host stub or preserve a dangling rootfs symlink.
 # Android's resolver may be absent from resolv.conf; CN has a bounded fallback.
+# Prints resolv.conf content for SERVERS. The container shares the host's network, so with
+# tailscale on the host MagicDNS goes first (a stopped tailscaled falls through after the
+# short timeout). KEEP_FROM, a resolv.conf about to be replaced, carries over its MagicDNS
+# entry and search suffix when there is no tailscale here (inside Arch, or a retry rewrite).
+network_with_magicdns() {
+  local servers=$1 keep=${2:-} suffix=''
+  if command -v tailscale >/dev/null 2>&1; then
+    suffix=$(timeout 3 tailscale status --json 2>/dev/null | sed -n 's/.*"MagicDNSSuffix": *"\([A-Za-z0-9.-]\{1,\}\)".*/\1/p' | head -n1) || true
+  elif [[ -r $keep ]] && grep -Eq '^[[:space:]]*nameserver[[:space:]]+100\.100\.100\.100([[:space:]]|$)' "$keep"; then
+    suffix=$(awk '$1 == "search" && $2 ~ /^[A-Za-z0-9.-]+$/ { print $2; exit }' "$keep")
+  else
+    printf '%s\n' "$servers"; return 0
+  fi
+  printf 'nameserver 100.100.100.100\n%s\n' "$servers"
+  [[ -z $suffix ]] || printf 'search %s\n' "$suffix"
+  printf 'options timeout:2\n'
+}
 network_resolv_config() {
   local root=$1 host=${2:-/etc/resolv.conf} uplink=${3:-/run/systemd/resolve/resolv.conf} servers
   servers=$(network_nameservers "$host")
@@ -201,19 +218,11 @@ network_resolv_config() {
     servers=$'nameserver 223.5.5.5\nnameserver 119.29.29.29'
   fi
   [[ -n $servers ]] || { echo 'No upstream DNS servers found on host' >&2; return 1; }
-  local extra=''
-  if command -v tailscale >/dev/null 2>&1; then
-    # The container shares the host's network; MagicDNS answers tailnet names. A stopped
-    # tailscaled falls through to the other servers after the short timeout.
-    servers=$'nameserver 100.100.100.100\n'$servers
-    extra=$'\noptions timeout:2'
-    local suffix
-    suffix=$(timeout 3 tailscale status --json 2>/dev/null | sed -n 's/.*"MagicDNSSuffix": *"\([A-Za-z0-9.-]\{1,\}\)".*/\1/p' | head -n1) || true
-    [[ -z $suffix ]] || extra=$'\nsearch '$suffix$extra
-  fi
+  local content
+  content=$(network_with_magicdns "$servers" "${4:-}")
   mkdir -p "$root/etc"
   rm -f "$root/etc/resolv.conf"
-  printf '%s%s\n' "$servers" "$extra" > "$root/etc/resolv.conf"
+  printf '%s\n' "$content" > "$root/etc/resolv.conf"
   chmod 644 "$root/etc/resolv.conf"
 }
 network_nameservers() {
@@ -233,8 +242,10 @@ network_container_dns() {
   if timeout "${NETWORK_DNS_TIMEOUT:-30}" "${probe[@]}" </dev/null; then return 0; fi
   if [[ $MIRROR == cn ]]; then
     echo 'Container DNS failed; retrying with mainland public resolvers' >&2
+    local content
+    content=$(network_with_magicdns $'nameserver 223.5.5.5\nnameserver 119.29.29.29' "$root/etc/resolv.conf")
     rm -f "$root/etc/resolv.conf"
-    printf 'nameserver 223.5.5.5\nnameserver 119.29.29.29\n' > "$root/etc/resolv.conf"
+    printf '%s\n' "$content" > "$root/etc/resolv.conf"
     chmod 644 "$root/etc/resolv.conf"
     if timeout "${NETWORK_DNS_TIMEOUT:-30}" "${probe[@]}" </dev/null; then return 0; fi
   fi

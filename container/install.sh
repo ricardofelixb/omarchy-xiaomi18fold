@@ -93,7 +93,7 @@ install_repo_packages() {
     local dnsroot
     dnsroot=$(mktemp -d)
     # Explicit fallback also repairs old containers when rerun directly in Arch.
-    network_resolv_config "$dnsroot" /dev/null /dev/null
+    network_resolv_config "$dnsroot" /dev/null /dev/null /etc/resolv.conf
     as_root rm -f /etc/resolv.conf
     as_root install -m644 "$dnsroot/etc/resolv.conf" /etc/resolv.conf
     rm -rf "$dnsroot"

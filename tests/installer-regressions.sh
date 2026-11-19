@@ -163,6 +163,19 @@ for m in global cn; do
 done
 pass 'Tailscale on the host puts 100.100.100.100 first (global and CN), keeps other servers, adds timeout and search'
 
+# Inside Arch there is no tailscale: the CN rewrite keeps the MagicDNS entry and search suffix.
+r=$work/ts-keep; mkdir -p "$r/etc"
+printf 'nameserver 100.100.100.100\nnameserver 1.1.1.1\nsearch tail1234.ts.net\noptions timeout:2\n' > "$work/existing-resolv"
+MIRROR=cn; network_init >/dev/null
+( PATH=$bin; network_resolv_config "$r" /dev/null /dev/null "$work/existing-resolv" )
+[[ $(nameservers "$r/etc/resolv.conf" | tr '\n' ' ') == '100.100.100.100 223.5.5.5 119.29.29.29 ' ]] || fail 'CN rewrite must keep MagicDNS first'
+assert_has "$r/etc/resolv.conf" 'search tail1234.ts.net'
+assert_has "$r/etc/resolv.conf" 'options timeout:2'
+r=$work/ts-nokeep; mkdir -p "$r/etc"
+( PATH=$bin; network_resolv_config "$r" /dev/null /dev/null "$work/uplink" )
+assert_lacks "$r/etc/resolv.conf" 100.100.100.100
+pass 'the CN rewrite keeps MagicDNS from the file it replaces, and adds none otherwise'
+
 # --- repeat config is idempotent ------------------------------------------------------
 r=$work/r7; mkdir -p "$r/etc"
 MIRROR=cn; network_init >/dev/null
@@ -352,6 +365,16 @@ assert_has "$rd/etc/resolv.conf" 223.5.5.5
 assert_has "$rd/etc/resolv.conf" 119.29.29.29
 assert_probe_host
 pass 'failed CN probe writes 223.5.5.5/119.29.29.29 and retries the probe'
+
+# --- the retry rewrite keeps MagicDNS first (tailscale on the host) --------------------
+reset_nspawn fail-once
+network_resolv_config "$rd" "$work/host-real" "$work/uplink"
+ln -sf "$work/tailscale-stub" "$bin/tailscale"
+( PATH=$bin:$PATH; network_container_dns "$rd" </dev/null 2>/dev/null ) || fail 'retry with tailscale must still succeed'
+rm -f "$bin/tailscale"
+[[ $(nameservers "$rd/etc/resolv.conf" | tr '\n' ' ') == '100.100.100.100 223.5.5.5 119.29.29.29 ' ]] || fail 'retry rewrite must keep MagicDNS first'
+assert_has "$rd/etc/resolv.conf" 'options timeout:2'
+pass 'the CN retry rewrite keeps MagicDNS, search and timeout'
 
 # --- every probe failing: the function must fail -------------------------------------
 reset_nspawn fail
