@@ -75,15 +75,44 @@ last_popup_close=0
 last_active=''
 POPUP_NS='^(fold-window-menu|omarchy-(menu|clipboard|emojis|image-selector|network-qr|network-speedtest|disk-speedtest|reminders|keyboard-panel))$'
 POPUP_MAX_S=${FOLD_POPUP_MAX_S:-120}
+POLL_S=${FOLD_POLL_S:-10}
 declare -A popup_since=()
 
 real_monitors() {
   hyprctl -j monitors all 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.disabled) \(.dpmsStatus)"'
 }
 
+# Terminal app "Display resolution": Half gives the VM a display of half the window size (inner
+# 1182x836, cover ~584x856) and the app upscales it, Full gives the real size (inner 2364x1672,
+# cover 1168x1712). A short side >= 1000 px separates them (836 < 1000 < 1168): scale 2 on Full
+# (sharp, right size), 1 on Half. monitors.lua starts at 1 and every reload resets to it.
+scale_for() { local short=$(( $1 < $2 ? $1 : $2 )); (( short >= 1000 )) && echo 2 || echo 1; }
+
+# Re-apply the scale for the connected output's active mode (monitors.lua and the dispatch below
+# both request mode = "preferred", so it is the preferred one); a no-op when it already matches.
+# Scales are compared unrounded, so a fractional 1.5 or 1.25 is corrected too.
+# Hyprland may adjust a requested scale (2365x1672 at 2 becomes ~1.83, to keep logical pixels whole):
+# the adjusted result it gave for a mode counts as done, or the guard would re-request it every check.
+# A reload resets the scale to 1, which differs from it, so the request is made again; a dispatch
+# that changed nothing (it failed) is never recorded and is retried.
+declare -A adjusted=()
+apply_scale() {
+  local name w h scale want after
+  while read -r name w h scale; do
+    want=$(scale_for "$w" "$h")
+    [[ $scale == "$want" || $scale == "${adjusted[$name $w $h]:-}" ]] && continue
+    log "output $name is ${w}x${h}; setting scale $want"
+    # hyprctl prints a harmless "expected a dispatcher" error here, the change still applies
+    hyprctl dispatch "hl.monitor({ output = \"$name\", mode = \"preferred\", position = \"0x0\", scale = $want })" >/dev/null 2>&1 </dev/null
+    after=$(hyprctl -j monitors 2>/dev/null </dev/null | jq -r --arg n "$name" '.[] | select(.name == $n) | .scale * 1')
+    [[ -n $after && $after != "$scale" && $after != "$want" ]] && adjusted[$name $w $h]=$after
+  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.width) \(.height) \(.scale * 1)"')
+}
+
 check() {
   local mons name disabled dpms enabled=0 any=0
   mons=$(real_monitors) || return
+  apply_scale
   while read -r name disabled dpms; do
     [[ -n $name ]] || continue
     any=1
@@ -186,13 +215,19 @@ popup_watch() {
 }
 
 log "start instance=$HYPRLAND_INSTANCE_SIGNATURE"
-sleep 3
-check
+# Subscribe before the first check, so an output change in between is queued, not missed. Right
+# after Hyprland starts the socket may be missing or not yet accepting (socat would exit and EVENTS
+# be unset): retry a probe connection until it works.
+for _ in $(seq 60); do socat /dev/null "UNIX-CONNECT:$SOCKET" 2>/dev/null && break; sleep 1; done
+socat /dev/null "UNIX-CONNECT:$SOCKET" 2>/dev/null || { log "event socket $SOCKET never accepted a connection; exiting"; exit 0; }
 # 9>&- : socat must not inherit the flock, or an orphaned socat blocks every later guard.
 coproc EVENTS { exec socat -U - "UNIX-CONNECT:$SOCKET" 2>/dev/null 9>&-; }
-# Event-driven, with a 10 s read timeout as the polling backstop.
+sleep 3
+check
+last_poll=$SECONDS
+# Event-driven, with a polling backstop (10 s) on elapsed time (a busy event stream must not starve it).
 while true; do
-  if IFS= read -r -t 10 -u "${EVENTS[0]}" event; then
+  if IFS= read -r -t "$POLL_S" -u "${EVENTS[0]}" event; then
     case $event in
       monitoradded*|monitorremoved*) sleep 2; check; after_output_change ;;
       configreloaded*) sleep 2; check ;;
@@ -216,7 +251,9 @@ while true; do
         fi ;;
     esac
     (( ${#popup_since[@]} )) && popup_watch
+    if (( SECONDS - last_poll >= POLL_S )); then last_poll=$SECONDS; check; fi
   elif (( $? > 128 )); then
+    last_poll=$SECONDS
     check
     popup_watch
   else

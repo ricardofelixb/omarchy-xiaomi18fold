@@ -74,8 +74,17 @@ adds to upstream files.
 - **Where:** `container/bin/fold-window-menu`, `container/bin/uwsm-app`, comment lines in `config/hypr/autostart.lua`, `config/hypr/touch.lua`, `container/bin/fold-dismiss-overlays`, `host/fold/bin/fold-touch-flush`, `host/fold/bin/fold-touch-flushd`.
 - **Drop when:** never, unless upstream adopts English text.
 
+### Monitor scale follows the Terminal app's Display resolution
+
+- **Kind:** 1, useful to anyone on the Android Terminal app. **Upstream candidate.**
+- **Bug:** on Display resolution Half the app upscales the VM's display 2x, so the desktop is soft; on Full it is sharp but tiny at scale 1. Hyprland's `auto` scale picks 2 on both (crosvm reports 130x90 mm).
+- **Fix:** `container/bin/fold-display-guard` sets scale 2 when the output's active mode has a short side of at least 1000 px (Full: inner 2364x1672, cover 1168x1712; Half: 1182x836, ~584x856) and 1 otherwise, on every check (output added, reload), and only when it differs (scales compared unrounded, so 1.5 or 1.25 are corrected). Omarchy's `xwayland.force_zero_scaling = true` stays, so X11-only apps stay sharp but render small at Full resolution (Wayland apps are fine). Done in the guard, not in Lua: a `monitor.added` hook that calls `hl.monitor` re-triggers itself (hyprwm/Hyprland discussion 14660). `GDK_SCALE` stays 1.
+- **Where:** `container/bin/fold-display-guard` (`scale_for`, `apply_scale`), `config/hypr/monitors.lua` (comment), `README.md` (note), `tests/fold-display-scale-regressions.sh`.
+- **Drop when:** the Terminal app gives the VM its real display density.
+
 ## Quick checks
 
+- `bash tests/fold-display-scale-regressions.sh`
 - `bash tests/fold-drawer-regressions.sh`
 - `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`
