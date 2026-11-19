@@ -88,9 +88,9 @@ real_monitors() {
 # (sharp, right size), 1 on Half. monitors.lua starts at 1 and every reload resets to it.
 scale_for() { local short=$(( $1 < $2 ? $1 : $2 )); (( short >= 1000 )) && echo 2 || echo 1; }
 
-# Re-apply the scale for the connected output's preferred mode (first of availableModes, else the
-# active size); a no-op when it already matches. Scales are
-# compared unrounded, so a fractional 1.5 or 1.25 is corrected too.
+# Re-apply the scale for the connected output's active mode (monitors.lua and the dispatch below
+# both request mode = "preferred", so it is the preferred one); a no-op when it already matches.
+# Scales are compared unrounded, so a fractional 1.5 or 1.25 is corrected too.
 # Hyprland may adjust a requested scale (2365x1672 at 2 becomes ~1.83, to keep logical pixels whole):
 # the adjusted result it gave for a mode counts as done, or the guard would re-request it every check.
 # A reload resets the scale to 1, which differs from it, so the request is made again; a dispatch
@@ -106,7 +106,7 @@ apply_scale() {
     hyprctl dispatch "hl.monitor({ output = \"$name\", mode = \"preferred\", position = \"0x0\", scale = $want })" >/dev/null 2>&1 </dev/null
     after=$(hyprctl -j monitors 2>/dev/null </dev/null | jq -r --arg n "$name" '.[] | select(.name == $n) | .scale * 1')
     [[ -n $after && $after != "$scale" && $after != "$want" ]] && adjusted[$name $w $h]=$after
-  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | . as $m | ($m.availableModes[0] // "" | capture("^(?<w>[0-9]+)x(?<h>[0-9]+)") // {w: $m.width, h: $m.height}) | "\($m.name) \(.w) \(.h) \($m.scale * 1)"')
+  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.width) \(.height) \(.scale * 1)"')
 }
 
 check() {
