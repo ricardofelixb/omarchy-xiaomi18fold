@@ -87,6 +87,8 @@ MIRROR=cn bash ./install.sh --profile core
 
 容器内还有 `fold-display-guard`（热插拔黑屏自愈）、底栏 dock、四指手势等。卡住时可在宿主运行：`fold-rescue`。
 
+画面发糊时：终端应用 → 设置 → 显示分辨率 选「完整」（Full）即可得到清晰桌面（`fold-display-guard` 自动把缩放设为 2），代价是更高的 CPU 占用；「一半」（Half）更省电但会被放大变糊。
+
 ### 剪贴板
 
 - **Android → Omarchy**：在 Android 里复制后切回 Linux Terminal，再在桌面粘贴。
@@ -132,3 +134,4 @@ tmux session: `omarchy-fold-install` (does not collide with Pad’s `omarchy-ins
 - IME: **Ctrl+Space** (not Alt/Super+Space — menu conflict). Shift alone works only if the keyboard emits a real Shift event.
 - OSK (wvkbd) off by default; prefer Android IME.
 - Host services: touch range sync, touch unstick, clipboard bridge.
+- Sharp desktop: Terminal app → Settings → Display resolution → **Full** (`fold-display-guard` then sets the monitor scale to 2). Costs more CPU; Half is cheaper but the app upscales it, so it looks soft.

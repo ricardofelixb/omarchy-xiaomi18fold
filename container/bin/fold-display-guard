@@ -81,9 +81,28 @@ real_monitors() {
   hyprctl -j monitors all 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.disabled) \(.dpmsStatus)"'
 }
 
+# Terminal app "Display resolution": Half gives the VM a display of half the window size (inner
+# 1182x836, cover ~584x856) and the app upscales it, Full gives the real size (inner 2364x1672,
+# cover 1168x1712). A short side >= 1000 px separates them (836 < 1000 < 1168): scale 2 on Full
+# (sharp, right size), 1 on Half. monitors.lua starts at 1 and every reload resets to it.
+scale_for() { local short=$(( $1 < $2 ? $1 : $2 )); (( short >= 1000 )) && echo 2 || echo 1; }
+
+# Re-apply the scale for the connected output's mode; a no-op when it already matches.
+apply_scale() {
+  local name w h scale want
+  while read -r name w h scale; do
+    want=$(scale_for "$w" "$h")
+    [[ $scale == "$want" ]] && continue
+    log "output $name is ${w}x${h}; setting scale $want"
+    # hyprctl prints a harmless "expected a dispatcher" error here, the change still applies
+    hyprctl dispatch "hl.monitor({ output = \"$name\", mode = \"preferred\", position = \"0x0\", scale = $want })" >/dev/null 2>&1
+  done < <(hyprctl -j monitors 2>/dev/null | jq -r '.[] | select(.name | test("^(FALLBACK|HEADLESS)"; "i") | not) | "\(.name) \(.width) \(.height) \(.scale | round)"')
+}
+
 check() {
   local mons name disabled dpms enabled=0 any=0
   mons=$(real_monitors) || return
+  apply_scale
   while read -r name disabled dpms; do
     [[ -n $name ]] || continue
     any=1
