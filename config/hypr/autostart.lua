@@ -4,7 +4,7 @@ o.launch_on_start("lock-ime-reset-autostart")
 -- Remote access, VNC and upgrade-all are intentionally not autostarted.
 
 -- Wayland on-screen keyboard (wvkbd): OFF by default on the fold, the Android keyboard is used.
--- Start manually: Alt+Shift+K (Super+Shift+K), launcher "虚拟键盘", or `omarchy-osk-toggle start`.
+-- Start manually: Alt+Shift+K (Super+Shift+K), the on-screen keyboard launcher, or `omarchy-osk-toggle start`.
 -- To start it with every session again: touch ~/.config/omarchy-osk-autostart
 local osk_flag = io.open((os.getenv("HOME") or "") .. "/.config/omarchy-osk-autostart", "r")
 if osk_flag then

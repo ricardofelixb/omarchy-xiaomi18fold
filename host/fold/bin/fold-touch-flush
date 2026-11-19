@@ -4,7 +4,7 @@
 # every touch id.  fold-ux7: hyprgrass only clears its "inhibit touch events" flag on a touch-down
 # while it tracks exactly ONE finger; a finger whose lift never arrived (Android cancelled a
 # 3/4-finger gesture, or fold-touch-reset removed the device mid-touch) stays in its state forever
-# and from then on every touch is cancelled -> dock / 窗口管理 / bar taps all dead, while window
+# and from then on every touch is cancelled -> dock / Windows menu / bar taps all dead, while window
 # focus still follows taps (hyprgrass warps the pointer on touch-down).
 # All slots touch the bottom-left corner (below the dock, wallpaper only) for ~40 ms.
 # Usage: sudo ~/fold-fix-tools/fold-touch-flush

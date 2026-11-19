@@ -6,7 +6,7 @@
 #
 # Usage: fold-window-menu [toggle|open|close]     (default: toggle)
 # Opened by: 3-finger long-press (hypr/touch.lua), ALT+SHIFT+W / SUPER+SHIFT+W,
-#            the dock's pinned "窗口管理" entry, or this command.
+#            the dock's pinned "Windows" entry, or this command.
 #
 # Target = the window that was active when the popup opened (captured once).
 # The overlay takes no keyboard focus, so the target keeps focus underneath.
@@ -86,7 +86,7 @@ if not re.fullmatch(r"0x[0-9a-fA-F]{6,16}", TARGET or "") or str((aw.get("worksp
     TARGET = ""
 _mon = next((m for m in (hypr_json("monitors") or []) if m.get("focused")), {})
 SCREEN_W, SCREEN_H = _mon.get("width", 0), _mon.get("height", 1)
-TITLE = (aw.get("class") or "") + ("  ·  " + aw["title"] if aw.get("title") else "") if TARGET else "（没有活动窗口）"
+TITLE = (aw.get("class") or "") + ("  ·  " + aw["title"] if aw.get("title") else "") if TARGET else "(no active window)"
 
 
 def on_target(dsp):
@@ -148,7 +148,7 @@ class Menu(Gtk.Application):
         card.set_valign(Gtk.Align.CENTER)
 
         head = Gtk.Box(spacing=8)
-        lbl = Gtk.Label(label="窗口管理", xalign=0, hexpand=True)
+        lbl = Gtk.Label(label="Windows", xalign=0, hexpand=True)
         lbl.add_css_class("title")
         head.append(lbl)
         head.append(self.btn("✕", self.quit, css="ws"))
@@ -159,19 +159,19 @@ class Menu(Gtk.Application):
 
         g = Gtk.Grid(column_spacing=10, row_spacing=10, column_homogeneous=True)
         acts = [
-            ("关闭窗口", lambda: on_target("hl.dsp.window.close()"), "danger"),
-            ("全屏", lambda: on_target("hl.dsp.window.fullscreen({ mode = 'fullscreen' })"), None),
-            ("浮动 / 平铺", lambda: on_target("hl.dsp.window.float({ action = 'toggle' })"), None),
-            ("最大化", lambda: on_target("hl.dsp.window.fullscreen({ mode = 'maximized' })"), None),
-            ("切换分割", lambda: on_target("hl.dsp.layout('togglesplit')"), None),
-            ("下一个窗口", lambda: lua("hl.dispatch(hl.dsp.window.cycle_next())"), None),
-            ("上一工作区", lambda: lua("hl.dispatch(hl.dsp.focus({ workspace = 'e-1' }))"), None),
-            ("下一工作区", lambda: lua("hl.dispatch(hl.dsp.focus({ workspace = 'e+1' }))"), None),
-            ("屏幕键盘", lambda: spawn("omarchy-osk-toggle toggle"), None),
-            ("应用抽屉", lambda: spawn("fold-drawer open"), None),
+            ("Close window", lambda: on_target("hl.dsp.window.close()"), "danger"),
+            ("Fullscreen", lambda: on_target("hl.dsp.window.fullscreen({ mode = 'fullscreen' })"), None),
+            ("Float / Tile", lambda: on_target("hl.dsp.window.float({ action = 'toggle' })"), None),
+            ("Maximize", lambda: on_target("hl.dsp.window.fullscreen({ mode = 'maximized' })"), None),
+            ("Toggle split", lambda: on_target("hl.dsp.layout('togglesplit')"), None),
+            ("Next window", lambda: lua("hl.dispatch(hl.dsp.window.cycle_next())"), None),
+            ("Previous workspace", lambda: lua("hl.dispatch(hl.dsp.focus({ workspace = 'e-1' }))"), None),
+            ("Next workspace", lambda: lua("hl.dispatch(hl.dsp.focus({ workspace = 'e+1' }))"), None),
+            ("Keyboard", lambda: spawn("omarchy-osk-toggle toggle"), None),
+            ("Apps", lambda: spawn("fold-drawer open"), None),
             # fold-ux4: one tap back to a clean desktop (closes every popup, shows an empty workspace)
-            ("回桌面", lambda: spawn("fold-dismiss-overlays desktop"), "home"),
-            ("Omarchy 菜单", lambda: spawn("omarchy-menu toggle"), None),
+            ("Desktop", lambda: spawn("fold-dismiss-overlays desktop"), "home"),
+            ("Omarchy menu", lambda: spawn("omarchy-menu toggle"), None),
         ]
         # fold-ux4: 3 columns on a landscape output so the card fits a 720 px tall screen
         cols = 3 if SCREEN_W > SCREEN_H else 2
@@ -179,7 +179,7 @@ class Menu(Gtk.Application):
             g.attach(self.btn(text, fn, css=css), i % cols, i // cols, 1, 1)
         card.append(g)
 
-        s = Gtk.Label(label="移动窗口到工作区（不跟随）", xalign=0)
+        s = Gtk.Label(label="Move window to workspace (stay here)", xalign=0)
         s.add_css_class("sect")
         card.append(s)
         row = Gtk.Box(spacing=8, homogeneous=True)
