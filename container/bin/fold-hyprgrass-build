@@ -41,7 +41,7 @@ fi
 echo "Building hyprgrass $pin for Hyprland $hl"
 [[ -z $(git -C "$src" status --porcelain --untracked-files=no) ]] ||
   die "$src has uncommitted changes; commit or stash them (or remove the folder) and rerun"
-git -C "$src" checkout --quiet --detach "$pin"
+git -C "$src" checkout --quiet --no-overwrite-ignore --detach "$pin"
 git -C "$src" submodule update --quiet --init --recursive
 rm -rf "$build"
 (meson setup "$build" "$src" && nice -n 19 ninja -C "$build" -j "$jobs") ||

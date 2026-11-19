@@ -26,9 +26,12 @@ pin=$(git -C "$work/upstream" rev-parse HEAD)
 printf 'commit_pins = [\n    ["%s", "%s"], # fake\n]\n' "$hl" "$pin" > "$work/upstream/hyprpm.toml"
 git -C "$work/upstream" add hyprpm.toml
 git -C "$work/upstream" commit -q -m pins
+# Upstream's tip no longer has "file", but the pinned commit does.
+git -C "$work/upstream" rm -q file
+git -C "$work/upstream" commit -q -m 'drop file'
 
 run() {
-  PATH="$work/bin:$PATH" FAKE_HL="${FAKE_HL:-$hl}" HYPRGRASS_REPO="$work/upstream" HYPRGRASS_SRC="$work/src" \
+  PATH="$work/bin:$PATH" FAKE_HL="${FAKE_HL:-$hl}" HYPRGRASS_REPO="$work/upstream" HYPRGRASS_SRC="${SRC:-$work/src}" \
     HYPRGRASS_PLUGIN="$work/plugins/libhyprgrass.so" HYPRGRASS_BUILD="$work/build" \
     HYPRGRASS_INCLUDE_DIR="$work/include" bash "$ROOT/container/bin/fold-hyprgrass-build" 2>&1
 }
@@ -60,3 +63,11 @@ git -C "$work/src" checkout -q -- file
 if out=$(FAKE_HL=0000000000000000000000000000000000000002 run); then fail "no-pin run succeeded: $out"; fi
 [[ $out == *'no hyprgrass release pins Hyprland commit 0000000000000000000000000000000000000002'* ]] || fail "unclear no-pin message: $out"
 echo 'PASS an unpinned Hyprland commit fails with a clear message'
+
+mkdir -p "$work/src2"
+git clone -q "$work/upstream" "$work/src2/hg"
+echo file >> "$work/src2/hg/.git/info/exclude"
+echo 'precious ignored work' > "$work/src2/hg/file"
+if out=$(SRC="$work/src2/hg" run); then fail "ignored file was built over: $out"; fi
+[[ $(cat "$work/src2/hg/file") == 'precious ignored work' ]] || fail 'an ignored file in the checkout was overwritten'
+echo 'PASS an ignored file the pinned commit tracks is not overwritten'
