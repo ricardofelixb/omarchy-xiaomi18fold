@@ -140,6 +140,29 @@ if network_resolv_config "$r" "$work/host-empty" "$work/no-such-uplink" 2>/dev/n
 fi
 pass 'the mainland fallback is CN-only; global mode with no usable server fails'
 
+# --- Tailscale on the host: MagicDNS first, existing servers kept, short timeout ----------
+# The tool dir has only what network_resolv_config needs, so "absent" is really absent.
+bin=$work/tsbin; mkdir -p "$bin"
+for t in awk grep mkdir rm chmod sed head timeout cat; do ln -s "$(command -v "$t")" "$bin/$t"; done
+printf '#!/bin/sh\necho "{\\"MagicDNSSuffix\\": \\"tail1234.ts.net\\"}"\n' > "$work/tailscale-stub"
+chmod +x "$work/tailscale-stub"
+for m in global cn; do
+  MIRROR=$m; network_init >/dev/null
+  r=$work/ts-absent-$m; mkdir -p "$r/etc"
+  ( PATH=$bin; network_resolv_config "$r" "$work/host-real" "$work/uplink" )
+  assert_lacks "$r/etc/resolv.conf" 100.100.100.100
+  assert_lacks "$r/etc/resolv.conf" timeout:2
+  r=$work/ts-present-$m; mkdir -p "$r/etc"
+  ln -sf "$work/tailscale-stub" "$bin/tailscale"
+  ( PATH=$bin; network_resolv_config "$r" "$work/host-real" "$work/uplink" )
+  rm -f "$bin/tailscale"
+  [[ $(nameservers "$r/etc/resolv.conf" | head -n1) == 100.100.100.100 ]] || fail "$m: MagicDNS must be first"
+  assert_has "$r/etc/resolv.conf" 9.9.9.9
+  assert_has "$r/etc/resolv.conf" 'options timeout:2'
+  assert_has "$r/etc/resolv.conf" 'search tail1234.ts.net'
+done
+pass 'Tailscale on the host puts 100.100.100.100 first (global and CN), keeps other servers, adds timeout and search'
+
 # --- repeat config is idempotent ------------------------------------------------------
 r=$work/r7; mkdir -p "$r/etc"
 MIRROR=cn; network_init >/dev/null

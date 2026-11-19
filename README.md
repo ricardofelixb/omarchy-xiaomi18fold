@@ -87,6 +87,8 @@ MIRROR=cn bash ./install.sh --profile core
 
 容器内还有 `fold-display-guard`（热插拔黑屏自愈）、底栏 dock、四指手势等。卡住时可在宿主运行：`fold-rescue`。
 
+Debian 虚拟机里装了 Tailscale 时，桌面（Arch 容器）也能用：容器共用虚拟机网络，安装时 DNS 会先问 Tailscale，tailnet 主机名可直接解析，Arch 里不用再装 Tailscale。
+
 画面发糊时：终端应用 → 设置 → 显示分辨率 选「完整」（Full）；缩放比例用 Omarchy 自带的显示缩放设置选择。「一半」（Half）更省电但会被放大变糊，「完整」CPU 占用更高。
 
 ### 剪贴板

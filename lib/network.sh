@@ -201,9 +201,19 @@ network_resolv_config() {
     servers=$'nameserver 223.5.5.5\nnameserver 119.29.29.29'
   fi
   [[ -n $servers ]] || { echo 'No upstream DNS servers found on host' >&2; return 1; }
+  local extra=''
+  if command -v tailscale >/dev/null 2>&1; then
+    # The container shares the host's network; MagicDNS answers tailnet names. A stopped
+    # tailscaled falls through to the other servers after the short timeout.
+    servers=$'nameserver 100.100.100.100\n'$servers
+    extra=$'\noptions timeout:2'
+    local suffix
+    suffix=$(timeout 3 tailscale status --json 2>/dev/null | sed -n 's/.*"MagicDNSSuffix": *"\([A-Za-z0-9.-]\{1,\}\)".*/\1/p' | head -n1) || true
+    [[ -z $suffix ]] || extra=$'\nsearch '$suffix$extra
+  fi
   mkdir -p "$root/etc"
   rm -f "$root/etc/resolv.conf"
-  printf '%s\n' "$servers" > "$root/etc/resolv.conf"
+  printf '%s%s\n' "$servers" "$extra" > "$root/etc/resolv.conf"
   chmod 644 "$root/etc/resolv.conf"
 }
 network_nameservers() {

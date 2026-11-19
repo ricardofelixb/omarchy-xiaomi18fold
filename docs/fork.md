@@ -83,6 +83,14 @@ adds to upstream files.
 - **Known follow-up:** the CN vendored tarball (`vendor/`, `lib/network.sh`) is still Omarchy v4.0.4, so a fresh CN install fails the v4.5.0 pin check until it is refreshed; release updates have no CN mirror.
 - **Drop when:** upstream ships an ARM package set and `omarchy-update` works on Arch Linux ARM.
 
+### Container DNS resolves tailnet names
+
+- **Kind:** 1, useful to anyone with Tailscale on the host. **Upstream candidate.**
+- **Bug:** the container shares the VM's network but its static `resolv.conf` skips Tailscale's MagicDNS, so tailnet IPs work and names do not.
+- **Fix:** with `tailscale` on the host, `network_resolv_config` puts `nameserver 100.100.100.100` first, keeps the other servers (CN fallback too), and adds `options timeout:2` and the MagicDNS `search` suffix when `tailscale status --json` gives one.
+- **Where:** `lib/network.sh` (`network_resolv_config`), `README.md`, `tests/installer-regressions.sh`.
+- **Drop when:** upstream sets up container DNS from the host's resolver.
+
 ## Quick checks
 
 - `bash tests/fold-omarchy-update-regressions.sh`
