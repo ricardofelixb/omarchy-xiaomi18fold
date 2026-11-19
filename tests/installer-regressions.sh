@@ -495,8 +495,11 @@ runuser() {
   done
   "\$@"
 }
-stat() { if grep -qxF -- "\$3" "\$ROOTDIRS"; then echo 0; else echo 1; fi; }
-chown() { sed -i "\\|^\$3\$|d" "\$ROOTDIRS"; }
+# the ownership helper: here it simply clears the stale folders, and must be asked to walk from the home
+python3() {
+  [[ \$1 == -I && \$2 == */lib/fix-user-dirs.py && \$3 == "\$T_HOME" && \${*: -4} == ".config systemd user default.target.wants" ]] || return 1
+  : > "\$ROOTDIRS"
+}
 install() {
   local a dst=''
   for a in "\$@"; do dst=\$a; done
@@ -523,6 +526,29 @@ STUBS
 fold_home_case fresh
 fold_home_case upgrade
 pass 'fresh and root-owned-folder upgrade homes get the fold user units enabled, every folder owned by the target user'
+
+# The ownership helper must never follow a link the user planted: ~/.config -> a folder elsewhere
+# (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal
+# user, "stale" is our own uid and fchown is recorded instead of performed.
+ud=$work/fold-links
+mkdir -p "$ud/victim/systemd/user" "$ud/home/real/systemd" "$ud/home2/.config/systemd/user"
+ln -s "$ud/victim" "$ud/home/.config"
+python3 -I - "$ROOT/lib/fix-user-dirs.py" "$ud" <<'PY' || fail 'fix-user-dirs.py regression failed'
+import importlib.util, os, sys
+spec = importlib.util.spec_from_file_location('fix_user_dirs', sys.argv[1])
+mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+ud = sys.argv[2]
+done = []
+os.fchown = lambda fd, u, g: done.append(os.fstat(fd).st_ino)
+me = os.getuid()
+chain = ['.config', 'systemd', 'user']
+mod.repair(ud + '/home', 1, 1, chain, stale=me)
+assert done == [], 'followed a symlinked .config'
+inos = [os.stat(ud + '/home2/.config' + x).st_ino for x in ('', '/systemd', '/systemd/user')]
+mod.repair(ud + '/home2', 1, 1, chain, stale=me)
+assert done == inos, 'real folders not repaired in order'
+PY
+pass 'ownership helper skips a symlinked ~/.config and repairs real folders'
 
 # Cached tarball with a matching checksum must not be downloaded again.
 cache=$work/cache2

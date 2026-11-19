@@ -576,10 +576,9 @@ install_fold_host_helpers() {
   fi
   if [[ -n ${T_HOME:-} && -d $T_HOME ]]; then
     # An older install may have left these folders owned by root, which stops the user creating
-    # default.target.wants. Hand them back; chown -h never follows a link planted in their place.
-    for d in "$T_HOME/.config" "$T_HOME/.config/systemd" "$T_HOME/.config/systemd/user" "$T_HOME/.config/systemd/user/default.target.wants"; do
-      if [[ -d $d && ! -L $d && $(stat -c %u "$d") == 0 ]]; then run chown -h "$T_UID:$T_GID" "$d"; fi
-    done
+    # default.target.wants. The helper walks them without following links the user could have planted.
+    run python3 -I "$SCRIPT_DIR/../lib/fix-user-dirs.py" "$T_HOME" "$T_UID" "$T_GID" \
+      .config systemd user default.target.wants || warn "could not check ownership of $T_HOME/.config/systemd"
     # As the target user, with its parents: root-made folders would stop it creating default.target.wants.
     run runuser -u "$TARGET_USER" -- mkdir -p "$T_HOME/.config/systemd/user"
     for u in fold-clip-bridge fold-touch-flushd; do
