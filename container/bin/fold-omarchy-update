@@ -82,7 +82,7 @@ run_migrations() {
 reapply_fold_config() {
   [[ -r $FOLD_ROOT/lib/config-overlay.sh ]] || { warn "No fold payload in $FOLD_ROOT; rerun container/install.sh to restore fold config."; return 1; }
   # shellcheck disable=SC2034 # ROOT is read by the sourced overlay
-  ( ROOT=$FOLD_ROOT; source "$FOLD_ROOT/lib/config-overlay.sh"; install_config_overlay )
+  ( ROOT=$FOLD_ROOT FOLD_KEEP_EXISTING=1; source "$FOLD_ROOT/lib/config-overlay.sh"; install_config_overlay )
 }
 
 main() {
@@ -102,7 +102,10 @@ main() {
   if command -v yay >/dev/null; then yay -Sua --noconfirm < /dev/null || warn 'AUR update failed (nonfatal).'; fi
   say 'Re-apply fold config'
   reapply_fold_config || status=1
-  omarchy-restart-shell || warn 'Omarchy shell did not restart; log out and back in to load the new shell.'
+  # The session and its bar run from the /usr/share/omarchy link; a restart by another path finds no shell.
+  local session_path=/usr/share/omarchy
+  [[ -d $session_path/shell ]] || session_path=$OMARCHY_PATH
+  OMARCHY_PATH=$session_path omarchy-restart-shell || warn 'Omarchy shell did not restart; log out and back in to load the new shell.'
   say 'Update complete. No reboot needed.'
   return $status
 }

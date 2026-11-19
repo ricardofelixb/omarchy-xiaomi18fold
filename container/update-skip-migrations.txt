@@ -19,3 +19,16 @@
 1791784278  # Have the N1x firmware reserve 4 GiB for the GPU instead of reclaiming its 62.5 GiB in the 
 1791898365  # Speed up the boot menu and keep it quiet until a key is pressed
 1792965062  # Name the hibernation resume device by its filesystem UUID
+# Need a package that only Omarchy's own repo carries; the container has no [omarchy] repo, so they always fail.
+1788129995  # Install omasnap
+1789764927  # Install owe and owe-lockfeed
+1790539857  # Install monologue
+1790542069  # Install hype
+1791345484  # Replace the Disk Usage TUI with Disktree
+1791403310  # Install omarchy-hyprland-titlebars
+1791708587  # Install signed
+1791382872  # Switch default mise tools to lazy shims (waits for the omarchy-settings package)
+1792041364  # Install gliff
+1792504295  # Build lazy shims for the new default coding agents (waits for the omarchy-settings package)
+# Would remove the container's own passwordless sudo, which the fold's helpers rely on.
+1788163635  # Remove legacy temporary passwordless sudo grants

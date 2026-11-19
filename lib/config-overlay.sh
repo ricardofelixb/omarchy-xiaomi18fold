@@ -33,6 +33,9 @@ install_config_overlay() {
     # This file is merged by configure_build_directories, not overwritten.
     [[ $relative != pacman/makepkg.conf ]] || continue
     if [[ $relative == hypr/input.lua ]]; then install_input_defaults; continue; fi
+    # An update only seeds what is missing: monitors.lua, foot.ini, kitty.conf and the like hold the
+    # user's scale and font size, and the installer's own edits.
+    if [[ -n ${FOLD_KEEP_EXISTING:-} && ( -e $HOME/.config/$relative || -L $HOME/.config/$relative ) ]]; then continue; fi
     # IME preferences are absent-only seeds, including dangling user symlinks.
     if [[ $relative == fcitx5/* && ( -e $HOME/.config/$relative || -L $HOME/.config/$relative ) ]]; then continue; fi
     install -Dm644 "$file" "$HOME/.config/$relative"

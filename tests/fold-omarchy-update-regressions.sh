@@ -84,4 +84,12 @@ out=$(run) || fail "shipped-patch run failed: $out"
 : > "$RUN_LOG"
 out=$(REMOTE=$work/nowhere run) || fail "offline run failed: $out"
 grep -q 'need a global network' <<< "$out" && grep -q 'pacman -Syu' "$RUN_LOG" || fail "offline handling wrong: $out"
+# 5. The real overlay in update mode keeps the user's edited config and seeds what is missing.
+ov=$work/overlay ovhome=$work/ovhome
+mkdir -p "$ov/config/hypr" "$ov/container/bin" "$ovhome/.config/hypr"
+echo 'scale = 1' > "$ov/config/hypr/monitors.lua"; echo 'new = 1' > "$ov/config/hypr/touch.lua"
+echo 'scale = 2' > "$ovhome/.config/hypr/monitors.lua"
+(repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay 2>/dev/null) || true
+[[ $(cat "$ovhome/.config/hypr/monitors.lua") == 'scale = 2' ]] || fail 'update overwrote the existing monitors.lua'
+[[ $(cat "$ovhome/.config/hypr/touch.lua") == 'new = 1' ]] || fail 'update did not seed the missing touch.lua'
 echo 'PASS fold-omarchy-update regressions'
