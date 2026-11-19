@@ -16,7 +16,7 @@ if [ "$1" = dispatch ]; then echo "$2" >> "$LOG"; else printf '%s\n' "$MON_JSON"
 STUB
 chmod +x "$work/bin/hyprctl"
 
-fn=$(sed -n '/^scale_for() /p;/^apply_scale() {/,/^}/p' "$ROOT/container/bin/fold-display-guard")
+fn=$(sed -n '/^scale_for() /p;/^declare -A adjusted/p;/^apply_scale() {/,/^}/p' "$ROOT/container/bin/fold-display-guard")
 run() { # width height current-scale -> dispatches made
   : > "$work/log"
   PATH="$work/bin:$PATH" LOG="$work/log" \
@@ -45,6 +45,29 @@ want 'Full at 1.99 is not 2' 2364 1672 1.99 2
 PREF='2364x1672@60.00Hz' want 'preferred Full while active Half' 1182 836 1.00 2
 PREF='1182x836@60.00Hz' want 'preferred Half while active Full' 2364 1672 2.00 1
 PREF='2364x1672@60.00Hz' want 'preferred Full already at 2' 1182 836 2.00 ''
+
+# Hyprland adjusts 2 to ~1.83 at 2365x1672: no re-request per check; a reload (scale back to 1)
+# re-requests; a dispatch that changed nothing is retried. Stateful stub: dispatch sets the scale.
+cat > "$work/bin/hyprctl" <<'STUB'
+#!/bin/sh
+if [ "$1" = dispatch ]; then
+  echo "$2" >> "$LOG"; [ -n "$FAIL" ] && exit 0
+  want=$(printf '%s' "$2" | sed 's/.*scale = \([0-9.]*\) .*/\1/'); echo "${ADJ:-$want}" > "$STATE"
+else
+  printf '[{"name":"Virtual-1","width":2365,"height":1672,"scale":%s}]\n' "$(cat "$STATE")"
+fi
+STUB
+cycle() { # start-scale checks -> dispatch count; env ADJ / FAIL as given
+  echo "$1" > "$work/state"; : > "$work/log"
+  PATH="$work/bin:$PATH" LOG="$work/log" STATE="$work/state" ADJ="${ADJ:-}" FAIL="${FAIL:-}" \
+    bash -c 'log() { :; }; eval "$1"; for _ in $(seq "$2"); do apply_scale; done' _ "$fn" "$2"
+  wc -l < "$work/log"
+}
+[[ $(ADJ=1.83 cycle 1 4) == 1 ]] || fail 'adjusted scale re-requested on every check'
+: > "$work/log"
+PATH="$work/bin:$PATH" LOG="$work/log" STATE="$work/state" ADJ=1.83 bash -c 'log() { :; }; eval "$1"; echo 1 > "$STATE"; apply_scale; apply_scale; echo 1 > "$STATE"; apply_scale; apply_scale' _ "$fn"
+[[ $(wc -l < "$work/log") == 2 ]] || fail "reload did not re-request the scale: $(cat "$work/log")"
+[[ $(FAIL=1 cycle 1 3) == 3 ]] || fail 'failed dispatch was not retried'
 
 # event loop: subscribed before the first check, and the backstop fires on elapsed time even when
 # events keep arriving faster than the poll interval
