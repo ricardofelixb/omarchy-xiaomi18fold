@@ -575,7 +575,8 @@ install_fold_host_helpers() {
     systemctl enable --now fold-touch-sync.service || true
   fi
   if [[ -n ${T_HOME:-} && -d $T_HOME ]]; then
-    install -d "$T_HOME/.config/systemd/user"
+    # As the target user, with its parents: root-made folders would stop it creating default.target.wants.
+    run runuser -u "$TARGET_USER" -- mkdir -p "$T_HOME/.config/systemd/user"
     for u in fold-clip-bridge fold-touch-flushd; do
       [[ -f $fold/systemd/user/$u.service ]] || continue
       install_user_file "$fold/systemd/user/$u.service" "$T_HOME/.config/systemd/user/$u.service" 644

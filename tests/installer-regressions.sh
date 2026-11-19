@@ -470,6 +470,40 @@ assert_has "$ROOT/host/install.sh" 'runuser -u "$TARGET_USER" -- mkdir -p "$want
 assert_has "$ROOT/host/install.sh" 'wants=$T_HOME/.config/systemd/user/default.target.wants'
 pass 'fold user units point at /usr/local/bin and are enabled without a running user manager'
 
+# Fresh home, no user manager: every folder under the home must be made by the target user (runuser),
+# never by the root-run installer, or the user cannot create default.target.wants afterwards.
+fh=$work/fold-fresh
+mkdir -p "$fh/home" "$fh/bin"
+{
+  sed -n '/^note()/p;/^warn()/p;/^run()/,/^}/p' "$ROOT/host/install.sh"
+  cat <<'STUBS'
+DRY_RUN=0; TARGET_USER=tester; T_UID=$(id -u); T_GID=$(id -g)
+runuser() { shift 3; "$@"; }
+# install stub: root-side installs may not create the parent folder themselves
+install() {
+  local a dst=''
+  for a in "$@"; do dst=$a; done
+  if [[ $1 == -d ]]; then
+    [[ $dst != "$T_HOME"/* ]] || { echo "root created $dst" >&2; return 1; }
+    command install -d "$dst"; return
+  fi
+  [[ -d $(dirname -- "$dst") ]] || { echo "root created parent of $dst" >&2; return 1; }
+  command install -m 644 "${@: -2:1}" "$dst"
+}
+STUBS
+  echo "SCRIPT_DIR=$ROOT/host; T_HOME=$fh/home"
+  sed -n '/^install_user_file()/,/^}/p;/^ensure_user_dir()/,/^}/p' "$ROOT/host/install.sh"
+  sed -n '/^install_fold_host_helpers()/,/^}/p' "$ROOT/host/install.sh" |
+    sed "s|/usr/local/bin|$fh/bin|g;/sudoers.d/,/^    fi\$/d;s|-S /run/user/\\\$T_UID/bus|-S /nonexistent|;/fold-touch-sync.service/,/^  fi\$/d;s|install -Dm755|command install -Dm755|"
+  echo 'set -e; install_fold_host_helpers'
+} > "$fh/run.sh"
+bash "$fh/run.sh" > "$fh/log" 2>&1 || fail "fresh-home fold helper install failed: $(tail -n 5 "$fh/log")"
+for unit in fold-clip-bridge fold-touch-flushd; do
+  [[ -L $fh/home/.config/systemd/user/default.target.wants/$unit.service ]] || fail "$unit not enabled on a fresh home"
+done
+assert_lacks "$fh/log" 'could not'
+pass 'a fresh home gets the fold user units enabled with every folder made by the target user'
+
 # Cached tarball with a matching checksum must not be downloaded again.
 cache=$work/cache2
 mkdir -p "$cache"
