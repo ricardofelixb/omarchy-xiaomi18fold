@@ -58,6 +58,6 @@ install_fold_payload() {
   rm -rf -- "$dest.new"; mkdir -p "$dest.new/container" "$dest.new/lib"
   cp -a "$ROOT/config" "$ROOT/patches" "$dest.new/"
   cp -a "$ROOT/container/bin" "$ROOT/container/update-skip-migrations.txt" "$dest.new/container/"
-  cp -a "$ROOT/lib/config-overlay.sh" "$dest.new/lib/"
+  cp -a "$ROOT/lib/config-overlay.sh" "$ROOT/lib/omarchy-move.sh" "$dest.new/lib/"
   rm -rf -- "$dest"; mv -T "$dest.new" "$dest"
 }

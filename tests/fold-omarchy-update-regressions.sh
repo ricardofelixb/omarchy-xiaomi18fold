@@ -31,6 +31,7 @@ exit $n
 EOF
 chmod +x "$bin"/*
 printf 'install_config_overlay() { echo overlay >> "$RUN_LOG"; }\n' > "$fold/lib/config-overlay.sh"
+cp "$ROOT/lib/omarchy-move.sh" "$fold/lib/"
 printf '1000001 # boot loader\n' > "$fold/container/update-skip-migrations.txt"
 
 # Upstream: v1.0.0 has two files and three migrations; v1.1.0 touches b.txt only.
@@ -44,7 +45,7 @@ echo beta2 > "$remote/b.txt"; g -C "$remote" commit -qam two; g -C "$remote" tag
 
 g clone -q --depth 1 --branch v1.0.0 "file://$remote" "$OP"
 g -C "$OP" switch -q -c arm-port
-echo alpha-fold > "$OP/a.txt"; g -C "$OP" commit -qam 'fold patch'
+echo alpha-fold > "$OP/a.txt"; GIT_COMMITTER_NAME=omarchy-alarm-nspawn g -C "$OP" commit -qam 'fold patch'
 
 run() {
   PATH="$bin:$PATH" FOLD_ROOT=$fold FOLD_OMARCHY_REMOTE="${REMOTE:-file://$remote}" bash "$ROOT/container/bin/fold-omarchy-update" 2>&1
@@ -71,12 +72,22 @@ grep -q 'Omarchy v1.2.0 needs a fold update; your system is unchanged' <<< "$out
 [[ $(git -C "$OP" rev-parse arm-port) == "$before" && -z $(git -C "$OP" status --porcelain) ]] || fail 'conflict changed the checkout'
 [[ ! -e $OP/.git/rebase-merge && ! -e $OP/.git/rebase-apply ]] || fail 'rebase left in progress'
 grep -q 'pacman -Syu' "$RUN_LOG" || fail 'packages not updated after a conflict'
+! grep -q 'ran-' "$RUN_LOG" || fail 'migrations ran although Omarchy did not move'
 
-# 3. The fork ships patches for v1.2.0: they replace the conflicting rebase.
+# 2b. The fallback never drops a commit the fork did not make.
+echo mine > "$OP/mine.txt"; g -C "$OP" add mine.txt; g -C "$OP" commit -qm 'user commit'
+# (the shipped patches below target v1.2.0, so only the guard can refuse here)
+g -C "$remote" rev-parse v1.2.0 | tr -d '\n' > "$fold/patches/BASE"
 g clone -q "file://$remote" "$work/scratch"; g -C "$work/scratch" checkout -q v1.2.0
 echo alpha-fold2 > "$work/scratch/a.txt"; g -C "$work/scratch" commit -qam 'fold patch two'
 g -C "$work/scratch" format-patch -q -1 -o "$fold/patches"
-g -C "$remote" rev-parse v1.2.0 | tr -d '\n' > "$fold/patches/BASE"
+before=$(git -C "$OP" rev-parse arm-port)
+out=$(run) || fail "user-commit run failed: $out"
+[[ $(git -C "$OP" rev-parse arm-port) == "$before" && -f $OP/mine.txt ]] || fail "fallback dropped the user commit: $out"
+grep -q 'needs a fold update' <<< "$out" || fail "no refusal message: $out"
+g -C "$OP" reset -q --hard HEAD~1
+
+# 3. The fork ships patches for v1.2.0 (set up above): they replace the conflicting rebase.
 out=$(run) || fail "shipped-patch run failed: $out"
 [[ $(git -C "$OP" show arm-port:a.txt) == alpha-fold2 && $(cut -d' ' -f1 "$home/.local/state/fold/omarchy-base") == v1.2.0 ]] || fail "shipped patches not applied: $out"
 
@@ -92,4 +103,32 @@ echo 'scale = 2' > "$ovhome/.config/hypr/monitors.lua"
 (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay 2>/dev/null) || true
 [[ $(cat "$ovhome/.config/hypr/monitors.lua") == 'scale = 2' ]] || fail 'update overwrote the existing monitors.lua'
 [[ $(cat "$ovhome/.config/hypr/touch.lua") == 'new = 1' ]] || fail 'update did not seed the missing touch.lua'
+
+
+# 4b. A missing skip list leaves every migration pending instead of running them all.
+: > "$RUN_LOG"; mv "$fold/container/update-skip-migrations.txt" "$work/skip.bak"
+out=$(REMOTE=$work/nowhere run) || true
+mv "$work/skip.bak" "$fold/container/update-skip-migrations.txt"
+! grep -q 'ran-' "$RUN_LOG" && grep -q 'Skip list .* is missing' <<< "$out" || fail "migrations ran without a skip list: $out"
+
+# 6. The installer on a shallow checkout made for an older release (no pinned tag yet) moves it.
+inst=$work/inst; mkdir -p "$inst/patches" "$inst/lib"
+cp "$ROOT/lib/omarchy-move.sh" "$inst/lib/"
+g clone -q --depth 1 --branch v1.0.0 "file://$remote" "$work/old"
+g -C "$work/old" switch -q -c arm-port; echo alpha-fold > "$work/old/a.txt"
+GIT_COMMITTER_NAME=omarchy-alarm-nspawn g -C "$work/old" commit -qam 'fold patch'
+g clone -q "file://$remote" "$work/scratch2"; g -C "$work/scratch2" checkout -q v1.1.0
+echo alpha-fold > "$work/scratch2/a.txt"; g -C "$work/scratch2" commit -qam 'fold patch'
+g -C "$work/scratch2" format-patch -q -1 -o "$inst/patches"
+g -C "$remote" rev-parse v1.1.0 | tr -d '\n' > "$inst/patches/BASE"
+install_fn=$(sed -n '/^clone_and_patch_omarchy() {/,/^}/p' "$ROOT/container/install.sh")
+[[ -n $install_fn ]] || fail 'clone_and_patch_omarchy not found'
+install_run() {
+  HOME=$work/inst-home ROOT=$inst OMARCHY_PATH=$work/old MIRROR=global OMARCHY_TAG=v1.1.0 FOLD_OMARCHY_REMOTE="file://$remote" \
+    bash -c "set -eu; $install_fn; clone_and_patch_omarchy" 2>&1
+}
+out=$(install_run) || fail "installer could not upgrade the old checkout: $out"
+[[ $(git -C "$work/old" show arm-port:b.txt) == beta2 && $(git -C "$work/old" show arm-port:a.txt) == alpha-fold && $(git -C "$work/old" rev-list --count v1.1.0..arm-port) == 1 ]] || fail "old checkout not moved onto v1.1.0 with one fold commit: $out"
+out=$(install_run) || fail "second installer run failed: $out"
+[[ $(git -C "$work/old" rev-list --count v1.1.0..arm-port) == 1 ]] || fail 'second installer run changed the branch'
 echo 'PASS fold-omarchy-update regressions'
