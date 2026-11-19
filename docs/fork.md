@@ -4,7 +4,7 @@ Fork of rwanglq-ctrl/omarchy-xiaomi18fold (remote `upstream`). One entry per lin
 
 Kinds: 1 = useful to anyone (upstream candidate), 2 = user preference over upstream, 3 = machine-specific.
 
-- hyprgrass build | `container/bin/fold-hyprgrass-build` (new file) | 3 (phone) | `container/install.sh`: `fold-hyprgrass-build` in the helper install list, a `build_hyprgrass` step and its `hyprgrass` report entry; `packages/repo-full.txt`: `glm`; `config/hypr/touch.lua`: header comment. Upstream candidate: the script, since touch gestures never worked without it.
+- hyprgrass build | `container/bin/fold-hyprgrass-build` (new file) | 3 (phone) | `container/install.sh`: `fold-hyprgrass-build` in the helper install list, a `build_hyprgrass` step and its `hyprgrass` report entry; `packages/repo-full.txt`: `glm`, `nwg-drawer` (the 3/4-finger-down gesture runs fold-drawer); `config/hypr/touch.lua`: header comment. Upstream candidate: the script, since touch gestures never worked without it.
 
 ## Quick checks
 
