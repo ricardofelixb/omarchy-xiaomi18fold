@@ -62,6 +62,17 @@ for manifest in ('aur-assets.json', 'lazyvim-assets.json'):
         assert item['integrity'].startswith('sha256-hex:')
         assert len(item['integrity'].split(':')[1]) == 64
         assert '/' not in item['file']
+# Pinned assets must come from the published release in both mirror modes. The
+# fold repo has no tools-v0.2.9 release, so any URL naming it is a 404.
+RELEASE = 'https://gitee.com/zenbardofsuhe/omarchy-xiaomipad9pm/releases/download/tools-v0.2.9/'
+for manifest in ('aur-assets.json', 'lazyvim-assets.json'):
+    for item in json.loads((ROOT / 'packages/desktop-extras' / manifest).read_text()):
+        for mode in ('cn', 'global'):
+            with patch.object(m.programs, 'download', side_effect=lambda tool, cache, mirror: tool) as download:
+                tool = m.asset(item, Path('cache'), mode)
+            url = m.programs.cn_url(tool) if mode == 'cn' else tool['url']
+            assert url == RELEASE + item['file'], (item['name'], mode, url)
+print('PASS desktop extras: pinned asset URLs use the published release in cn and global modes')
 print('PASS desktop extras: absent-only LazyVim, incomplete bundle rejection, offline snapshot, pinned assets')
 
 # Real makepkg distinguishes empty architecture arrays from unset variables.
