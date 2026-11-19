@@ -62,6 +62,13 @@ for path in Path(sys.argv[1]).rglob('*.qml'):
         assert 'import qs.Commons as OmarchyColors' in text, path
 print('PASS qualified shell color consumers')
 PYCOLORS
+  # Every commit the series makes must be listed in KNOWN-TREES, which the updater uses to recognise fork commits.
+  git clone --quiet --shared "$CACHE/upstream" "$work/am"
+  for p in "${patches[@]}"; do
+    git -C "$work/am" -c user.name=fold -c user.email=fold@example.com am --quiet "$p"
+    grep -q "^$(git -C "$work/am" rev-parse 'HEAD^{tree}') " "$ROOT/patches/KNOWN-TREES" || {
+      echo "append $(git -C "$work/am" rev-parse 'HEAD^{tree}') ${p##*/} to patches/KNOWN-TREES" >&2; return 1; }
+  done
   bash "$ROOT/tests/patch-upgrade-regressions.sh"
 }
 check_repo_packages() {

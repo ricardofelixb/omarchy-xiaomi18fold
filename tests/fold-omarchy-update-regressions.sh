@@ -129,6 +129,7 @@ g -C "$work/old" commit -qam 'fold patch'
 g clone -q "file://$remote" "$work/scratch2"; g -C "$work/scratch2" checkout -q v1.1.0
 echo alpha-fold > "$work/scratch2/a.txt"; g -C "$work/scratch2" commit -qam 'fold patch'
 g -C "$work/scratch2" format-patch -q -1 -o "$inst/patches"
+printf '%s fork patch\n' "$(git -C "$work/scratch2" rev-parse 'HEAD^{tree}')" > "$inst/patches/KNOWN-TREES"
 g -C "$remote" rev-parse v1.1.0 | tr -d '\n' > "$inst/patches/BASE"
 install_fn=$(sed -n '/^clone_and_patch_omarchy() {/,/^}/p' "$ROOT/container/install.sh")
 [[ -n $install_fn ]] || fail 'clone_and_patch_omarchy not found'
@@ -144,15 +145,17 @@ git -C "$work/old" notes --ref=fold show arm-port >/dev/null 2>&1 || fail 'insta
 out=$(install_run) || fail "second installer run failed: $out"
 [[ $(git -C "$work/old" rev-list --count v1.1.0..arm-port) == 1 ]] || fail 'second installer run changed the branch'
 
-# 7. An old install without notes whose move conflicts: its commits are recognised from KNOWN-PATCH-IDS
+# 7. An old install without notes whose move conflicts: its commits are recognised from KNOWN-TREES
 # and the shipped patches take over; a user commit among them makes the installer refuse.
 inst2=$work/inst2; old2=$work/old2; mkdir -p "$inst2/patches" "$inst2/lib"
 cp "$ROOT/lib/omarchy-move.sh" "$inst2/lib/"
 g clone -q --depth 1 --branch v1.0.0 "file://$remote" "$old2"
-g -C "$old2" switch -q -c arm-port; echo beta-fold > "$old2/b.txt"; g -C "$old2" commit -qam 'fold patch b'
-g -C "$old2" show --format= -p HEAD | (source "$ROOT/lib/omarchy-move.sh"; omv_change_id > "$inst2/patches/KNOWN-PATCH-IDS")
+g -C "$old2" switch -q -c arm-port; echo beta-fold > "$old2/b.txt"; printf 'l1\ncustom-setting\nl3\nl4\nl5\n' > "$old2/c.txt"
+g -C "$old2" add c.txt; g -C "$old2" commit -qam 'fold patch b'
+printf '%s fork patch\n' "$(git -C "$old2" rev-parse 'HEAD^{tree}')" > "$inst2/patches/KNOWN-TREES"
 g clone -q "file://$remote" "$work/scratch3"; g -C "$work/scratch3" checkout -q v1.1.0
-echo beta-fold > "$work/scratch3/b.txt"; g -C "$work/scratch3" commit -qam 'fold patch b'
+echo beta-fold > "$work/scratch3/b.txt"; printf 'l1\ncustom-setting\nl3\nl4\nl5\n' > "$work/scratch3/c.txt"
+g -C "$work/scratch3" add c.txt; g -C "$work/scratch3" commit -qam 'fold patch b'
 g -C "$work/scratch3" format-patch -q -1 -o "$inst2/patches"
 g -C "$remote" rev-parse v1.1.0 | tr -d '\n' > "$inst2/patches/BASE"
 # A whitespace-only edit of a fork commit is the user's change: the fallback must not replace it.
@@ -161,6 +164,12 @@ before=$(git -C "$old2" rev-parse arm-port)
 out=$(IHOME=$work/inst2-home INST=$inst2 OLD=$old2 install_run) && fail "installer replaced a whitespace-edited fork commit: $out"
 [[ $(git -C "$old2" rev-parse arm-port) == "$before" && $(git -C "$old2" show arm-port:b.txt) == 'beta- fold' ]] || fail "refused install changed the checkout: $out"
 echo beta-fold > "$old2/b.txt"; g -C "$old2" commit -qa --amend --no-edit
+# The same line at another place in the file is not the fork's change either.
+printf 'l1\nl3\nl4\ncustom-setting\nl5\n' > "$old2/c.txt"; g -C "$old2" commit -qa --amend --no-edit
+before=$(git -C "$old2" rev-parse arm-port)
+out=$(IHOME=$work/inst2-home INST=$inst2 OLD=$old2 install_run) && fail "installer replaced a fork commit whose line was moved: $out"
+[[ $(git -C "$old2" rev-parse arm-port) == "$before" ]] || fail "refused install changed the checkout: $out"
+printf 'l1\ncustom-setting\nl3\nl4\nl5\n' > "$old2/c.txt"; g -C "$old2" commit -qa --amend --no-edit
 echo mine > "$old2/mine.txt"; g -C "$old2" add mine.txt; g -C "$old2" commit -qm 'user commit'
 before=$(git -C "$old2" rev-parse arm-port)
 out=$(IHOME=$work/inst2-home INST=$inst2 OLD=$old2 install_run) && fail "installer replaced a conflicting checkout that holds a user commit: $out"
