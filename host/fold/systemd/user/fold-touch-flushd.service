@@ -6,7 +6,7 @@
 Description=fold touchscreen unstick daemon (fold-ux9)
 
 [Service]
-ExecStart=/usr/local/bin/fold-touch-flushd
+ExecStart=/usr/bin/sudo -n /usr/local/bin/fold-touch-flushd
 Restart=always
 RestartSec=3
 

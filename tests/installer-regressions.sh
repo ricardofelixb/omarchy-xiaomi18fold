@@ -460,7 +460,9 @@ pass 'existing Arch rootfs is reused (no extraction) and DNS is checked before p
 # enabled even when no user manager is running (a missing path gave status=203/EXEC; a skipped enable
 # left the clipboard bridge off, so Android's wl-paste hung on a dead wayland-0).
 for unit in fold-clip-bridge fold-touch-flushd; do
-  assert_has "$ROOT/host/fold/systemd/user/$unit.service" "ExecStart=/usr/local/bin/$unit"
+  # fold-touch-flushd needs root for /dev/input, so its unit goes through the installer's sudoers entry.
+  grep -Eq "^ExecStart=(/usr/bin/sudo -n )?/usr/local/bin/$unit\$" "$ROOT/host/fold/systemd/user/$unit.service" ||
+    fail "$unit.service must start /usr/local/bin/$unit (optionally via /usr/bin/sudo -n)"
   [[ -f $ROOT/host/fold/bin/$unit ]] || fail "host/fold/bin/$unit missing"
   assert_has "$ROOT/host/install.sh" "install -Dm755 \"\$fold/bin/\$b\" \"/usr/local/bin/\$b\""
   grep -Eq "^  for b in .*\b$unit\b" "$ROOT/host/install.sh" || fail "host/install.sh must install $unit to /usr/local/bin"
