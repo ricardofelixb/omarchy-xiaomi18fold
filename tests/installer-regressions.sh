@@ -533,7 +533,7 @@ pass 'fresh and root-owned-folder upgrade homes get the fold user units enabled,
 # (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal
 # user, "stale" is our own uid and fchown is recorded instead of performed.
 ud=$work/fold-links
-mkdir -p "$ud/victim/systemd/user" "$ud/home/real/systemd" "$ud/home2/.config/systemd/user"
+mkdir -p "$ud/victim/systemd/user" "$ud/home" "$ud/home2/.config/systemd/user"
 ln -s "$ud/victim" "$ud/home/.config"
 python3 -I - "$ROOT/lib/fix-user-dirs.py" "$ud" <<'PY' || fail 'fix-user-dirs.py regression failed'
 import importlib.util, os, sys
