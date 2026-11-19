@@ -94,6 +94,12 @@ MIRROR=cn bash ./install.sh --profile core
 - **Android → Omarchy**：在 Android 里复制后切回 Linux Terminal，再在桌面粘贴。
 - **Omarchy → Android**：在桌面复制后切到其他 Android 应用。
 
+### 更新
+
+菜单里的 **Update System**（或终端里的 `omarchy-update`）可用：升级到最新 Omarchy 版本、Arch Linux ARM 软件包和 AUR 包，并重新应用折叠机配置。
+会跳过 Omarchy 的钥匙环刷新、快照、引导/内核检查、mise 更新和重启提示，以及改动引导/内核的迁移（见 `container/update-skip-migrations.txt`）。
+如果新 Omarchy 版本与本项目补丁冲突，会提示并保持 Omarchy 原样，只更新软件包。
+
 ## 配置文件与工具位置
 
 - Hyprland 叠加：`config/hypr/`（含 `fold_modifier.lua`、`touch.lua`）
@@ -134,4 +140,5 @@ tmux session: `omarchy-fold-install` (does not collide with Pad’s `omarchy-ins
 - IME: **Ctrl+Space** (not Alt/Super+Space — menu conflict). Shift alone works only if the keyboard emits a real Shift event.
 - OSK (wvkbd) off by default; prefer Android IME.
 - Host services: touch range sync, touch unstick, clipboard bridge.
+- Update System (menu or `omarchy-update`) works: it moves Omarchy to the latest release, upgrades Arch Linux ARM and AUR packages, and re-applies the fold config. It skips Omarchy's keyring refresh, snapshot, boot/kernel checks, mise update, reboot prompt and the boot/kernel migrations (`container/update-skip-migrations.txt`). If a new release conflicts with the fold patches, Omarchy stays as it is and only packages update. Needs github.com (no mirror).
 - Sharp desktop: Terminal app → Settings → Display resolution → **Full**; pick the scale with Omarchy's display scale setting. Costs more CPU; Half is cheaper but the app upscales it, so it looks soft.

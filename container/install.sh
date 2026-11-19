@@ -28,6 +28,8 @@ done
 
 # shellcheck source=../lib/network.sh
 source "$ROOT/lib/network.sh"
+# shellcheck source=../lib/config-overlay.sh
+source "$ROOT/lib/config-overlay.sh"
 NETWORK_DRY_RUN=$($dry_run && echo 1 || echo 0) network_init
 if [[ $MIRROR == cn ]]; then
   echo "CN mode: programs and desktop extras use verified CN sources."
@@ -161,9 +163,9 @@ clone_and_patch_omarchy() {
   expected=$(tr -d '\n' < "$ROOT/patches/BASE")
   if [[ ! -e $OMARCHY_PATH ]]; then
     if [[ $MIRROR == cn ]]; then network_unpack_omarchy "$ROOT" "$OMARCHY_PATH"
-    else timeout 120 git clone --branch v4.0.4 --depth 1 https://github.com/basecamp/omarchy.git "$OMARCHY_PATH"; fi
+    else timeout 120 git clone --branch v4.5.0 --depth 1 https://github.com/omacom/omarchy.git "$OMARCHY_PATH"; fi
   fi
-  actual=$(git -C "$OMARCHY_PATH" rev-parse 'v4.0.4^{commit}')
+  actual=$(git -C "$OMARCHY_PATH" rev-parse 'v4.5.0^{commit}')
   [[ $actual == "$expected" ]] || {
     echo 'Existing Omarchy checkout does not have the pinned base.' >&2; exit 1;
   }
@@ -219,54 +221,6 @@ seed_omarchy_config() {
       cp -a --update=none "$item" "$HOME/.config/"
     fi
   done
-}
-install_input_defaults() {
-  local target="$HOME/.config/hypr/input.lua"
-  local baseline="$HOME/.local/state/omarchy-alarm/input.lua"
-  local known_default=false hash
-  if [[ -f $target && ! -L $target ]]; then
-    hash=$(sha256sum "$target" | cut -d ' ' -f1)
-    # Exact v0.2.0–v0.2.8 blob, interim v0.2.9 overlay, and released v0.2.9.
-    case "$hash" in
-      db40a8d86e57673cc37d3183c3307c4b98d0ff48839a46ef31d4cad1d400f805|a99d3741cd4070d9a32b6b301adda1f15273f876ae1b9438e4336db7734e1a5e|6ad1625ed77bda8fc6b0cd0921929ef6f796017a8a523b3af420a7600e5f2abe) known_default=true ;;
-    esac
-  fi
-  # Only replace absent or byte-identical installer/upstream defaults. Never
-  # follow a user symlink or overwrite an edited input file on repeat installs.
-  if [[ ! -L $target ]] && { [[ ! -e $target ]] ||
-      cmp -s "$target" "$baseline" ||
-      cmp -s "$target" "$ROOT/config/hypr/input.lua" ||
-      cmp -s "$target" "$OMARCHY_PATH/config/hypr/input.lua" ||
-      $known_default; }; then
-    install -Dm644 "$ROOT/config/hypr/input.lua" "$target"
-    install -Dm644 "$ROOT/config/hypr/input.lua" "$baseline"
-  else
-    install -Dm644 "$ROOT/config/hypr/input.lua" "$baseline.dist"
-    echo "Preserved edited/symlinked $target; reviewed defaults: $baseline.dist"
-  fi
-}
-install_config_overlay() {
-  local file relative
-  while IFS= read -r -d '' file; do
-    relative=${file#"$ROOT/config/"}
-    # This file is merged by configure_build_directories, not overwritten.
-    [[ $relative != pacman/makepkg.conf ]] || continue
-    if [[ $relative == hypr/input.lua ]]; then install_input_defaults; continue; fi
-    # IME preferences are absent-only seeds, including dangling user symlinks.
-    if [[ $relative == fcitx5/* && ( -e $HOME/.config/$relative || -L $HOME/.config/$relative ) ]]; then continue; fi
-    install -Dm644 "$file" "$HOME/.config/$relative"
-  done < <(find "$ROOT/config" -type f -print0)
-  install -Dm755 "$ROOT/container/bin/fcitx5-autostart" "$HOME/.local/bin/fcitx5-autostart"
-  # Xiaomi 18 Fold helpers (display guard, touch flush, dock, OSK toggle, window menu)
-  for _fold_bin in fold-display-guard fold-window-menu fold-touch-flush-req fold-dismiss-overlays \
-      fold-session-rescue omarchy-osk-toggle fold-dock fold-drawer fold-hyprgrass-build; do
-    if [[ -f $ROOT/container/bin/$_fold_bin ]]; then
-      install -Dm755 "$ROOT/container/bin/$_fold_bin" "$HOME/.local/bin/$_fold_bin"
-    fi
-  done
-  install -Dm755 "$ROOT/container/bin/host-run" "$HOME/.local/bin/host-run"
-  install -Dm755 "$ROOT/container/bin/portal-autostart" "$HOME/.local/bin/portal-autostart"
-  install -Dm755 "$ROOT/container/bin/lock-ime-reset-autostart" "$HOME/.local/bin/lock-ime-reset-autostart"
 }
 configure_gtk_im_module() { bash "$ROOT/lib/gtk-im-module.sh"; }
 configure_bashrc() {
@@ -398,10 +352,11 @@ step initialize_machine_identity 'Initialize persistent machine-id for non-boot 
 step install_repo_packages 'Install repository packages (core plus selected full extras)'
 step configure_build_directories 'Set makepkg BUILDDIR and TMPDIR beneath HOME/.cache'
 step install_aur_packages 'Install verified yay and requested desktop packages (unless --no-aur)'
-step clone_and_patch_omarchy 'Clone upstream v4.0.4, verify patches/BASE, apply ARM patches once'
+step clone_and_patch_omarchy 'Clone upstream v4.5.0, verify patches/BASE, apply ARM patches once'
 step install_system_helpers 'Link /usr/share/omarchy and install /usr/local/bin/uwsm-app'
 step seed_omarchy_config 'Seed missing upstream configuration defaults'
 step install_config_overlay 'Install reviewed config allowlist and fcitx5-autostart/host-run helpers'
+step install_fold_payload 'Keep a copy of patches, config and overlay code for fold-omarchy-update'
 step setup_lazyvim 'Install LazyVim only when nvim config is absent, using verified CN sources in CN mode'
 step configure_bashrc 'Append marked Omarchy default bash configuration and bin PATH'
 step provision_user_headless 'Run omarchy-provision-user headless; seed Tokyo Night theme'
