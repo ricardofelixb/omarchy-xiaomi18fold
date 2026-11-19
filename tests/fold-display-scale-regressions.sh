@@ -41,6 +41,29 @@ want 'Half already at 1' 1182 836 1.00 ''
 want 'Full at 1.5 is not 2' 2364 1672 1.50 2
 want 'Half at 1.25 is not 1' 1182 836 1.25 1
 want 'Full at 1.99 is not 2' 2364 1672 1.99 2
+# Hyprland adjusts 2 to ~1.83 at 2365x1672: no re-request per check; a reload (scale back to 1)
+# re-requests; a dispatch that changed nothing is retried. Stateful stub: dispatch sets the scale.
+cat > "$work/bin/hyprctl" <<'STUB'
+#!/bin/sh
+if [ "$1" = dispatch ]; then
+  echo "$2" >> "$LOG"; [ -n "$FAIL" ] && exit 0
+  want=$(printf '%s' "$2" | sed 's/.*scale = \([0-9.]*\) .*/\1/'); echo "${ADJ:-$want}" > "$STATE"
+else
+  printf '[{"name":"Virtual-1","width":2365,"height":1672,"scale":%s}]\n' "$(cat "$STATE")"
+fi
+STUB
+cycle() { # start-scale checks -> dispatch count; env ADJ / FAIL as given
+  echo "$1" > "$work/state"; : > "$work/log"
+  PATH="$work/bin:$PATH" LOG="$work/log" STATE="$work/state" ADJ="${ADJ:-}" FAIL="${FAIL:-}" \
+    bash -c 'log() { :; }; eval "$1"; for _ in $(seq "$2"); do apply_scale; done' _ "$fn" "$2"
+  wc -l < "$work/log"
+}
+[[ $(ADJ=1.83 cycle 1 4) == 1 ]] || fail 'adjusted scale re-requested on every check'
+: > "$work/log"
+PATH="$work/bin:$PATH" LOG="$work/log" STATE="$work/state" ADJ=1.83 bash -c 'log() { :; }; eval "$1"; echo 1 > "$STATE"; apply_scale; apply_scale; echo 1 > "$STATE"; apply_scale; apply_scale' _ "$fn"
+[[ $(wc -l < "$work/log") == 2 ]] || fail "reload did not re-request the scale: $(cat "$work/log")"
+[[ $(FAIL=1 cycle 1 3) == 3 ]] || fail 'failed dispatch was not retried'
+
 # event loop: subscribed before the first check, and the backstop fires on elapsed time even when
 # events keep arriving faster than the poll interval
 printf '#!/bin/sh\ntouch "$WORK/socat-started"\nwhile :; do echo workspacev2\\>\\>1; sleep 0.2; done\n' > "$work/bin/socat"
