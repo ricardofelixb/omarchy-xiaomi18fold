@@ -43,7 +43,7 @@ HOME=$work/go-home XDG_CONFIG_HOME=$work/go-home/.config bash "$ROOT/lib/home-la
 # Rerunning the installer refreshes an existing managed makepkg block (older ones lack GOPATH).
 upg=$work/upgrade-home; mkdir -p "$upg/.config/pacman"
 printf 'MAKEFLAGS=-j2\n\n# BEGIN omarchy-alarm build\nBUILDDIR=$HOME/.cache/makepkg\nexport TMPDIR=$HOME/.cache/tmp\n# END omarchy-alarm build\nPKGEXT=.keep\n' > "$upg/.config/pacman/makepkg.conf"
-run_cbd() { HOME=$upg ROOT=$ROOT bash -c "$(sed -n '/^configure_build_directories()/,/^}/p' "$ROOT/container/install.sh"); configure_build_directories"; }
+run_cbd() { HOME=$upg XDG_CONFIG_HOME=$upg/.config ROOT=$ROOT bash -c "$(sed -n '/^configure_build_directories()/,/^}/p' "$ROOT/container/install.sh"); configure_build_directories"; }
 run_cbd
 conf=$upg/.config/pacman/makepkg.conf
 [[ $(grep -c '^export GOPATH=' "$conf") == 1 ]] || { echo 'FAIL: existing makepkg block not given GOPATH'; exit 1; }
@@ -78,6 +78,10 @@ printf '# BEGIN omarchy-alarm build\n# END omarchy-alarm build\n' > "$conf"
 mv "$conf" "$upg/dotfile-makepkg.conf"; ln -s "$upg/dotfile-makepkg.conf" "$conf"
 run_cbd
 [[ -L $conf && $(grep -c '^export GOPATH=' "$upg/dotfile-makepkg.conf") == 1 ]] || { echo 'FAIL: symlinked makepkg.conf replaced or not refreshed'; exit 1; }
+# makepkg reads $XDG_CONFIG_HOME/pacman/makepkg.conf, so that is where GOPATH must go.
+xdg=$work/xdg-home
+HOME=$xdg XDG_CONFIG_HOME=$xdg/elsewhere ROOT=$ROOT bash -c "$(sed -n '/^configure_build_directories()/,/^}/p' "$ROOT/container/install.sh"); configure_build_directories"
+[[ $(grep -c '^export GOPATH=' "$xdg/elsewhere/pacman/makepkg.conf") == 1 && ! -e $xdg/.config/pacman ]] || { echo 'FAIL: makepkg block not written under XDG_CONFIG_HOME'; exit 1; }
 for package in uwsm hyprland-guiutils ttf-jetbrains-mono-nerd tree-sitter-cli; do
   grep -Fxq "$package" "$ROOT/packages/repo-core.txt"
 done

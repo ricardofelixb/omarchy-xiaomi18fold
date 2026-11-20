@@ -111,8 +111,8 @@ install_repo_packages() {
   fi
 }
 configure_build_directories() {
-  mkdir -p "$HOME/.config/pacman" "$HOME/.cache/makepkg" "$HOME/.cache/tmp"
-  local file="$HOME/.config/pacman/makepkg.conf"
+  local file="${XDG_CONFIG_HOME:-$HOME/.config}/pacman/makepkg.conf" # where makepkg looks
+  mkdir -p "${file%/*}" "$HOME/.cache/makepkg" "$HOME/.cache/tmp"
   touch "$file"
   if grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
     # Refresh the managed block so settings added later (GOPATH) reach existing installs.

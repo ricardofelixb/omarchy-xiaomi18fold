@@ -19,7 +19,7 @@ mkdir -p "$bin" "$home/.local/share" "$fold/container" "$fold/lib" "$fold/patche
 # Stubs: record what ran. omarchy-migrate lists migrations without a marker, like the real one.
 printf '#!/bin/sh\nexec "$@"\n' > "$bin/sudo"
 printf '#!/bin/sh\necho "pacman $* UPDATE_PACMAN=$OMARCHY_UPDATE_PACMAN ALLOW=$OMARCHY_ALLOW_DIRECT_PACMAN" >> "$RUN_LOG"\n' > "$bin/pacman"
-printf '#!/bin/sh\necho "yay $*" >> "$RUN_LOG"\n' > "$bin/yay"
+printf '#!/bin/sh\necho "yay $* GOPATH=${GOPATH:-}" >> "$RUN_LOG"\n' > "$bin/yay"
 printf '#!/bin/sh\necho restart-shell >> "$RUN_LOG"\n' > "$bin/omarchy-restart-shell"
 printf '#!/bin/sh\necho hyprgrass-build >> "$RUN_LOG"\n' > "$bin/fold-hyprgrass-build"
 cat > "$bin/omarchy-migrate" <<'EOF'
@@ -67,6 +67,7 @@ grep -q ran-2 "$RUN_LOG" && [[ -f $home/.local/state/omarchy/migrations/1000002.
 grep -q ran-3 "$RUN_LOG" && [[ ! -f $home/.local/state/omarchy/migrations/1000003.sh ]] || fail 'failing migration must run and stay pending'
 grep -q 'failed and will retry next update: 1000003' <<< "$out" || fail "failed migration not reported: $out"
 for step in yay overlay restart-shell hyprgrass-build; do grep -q "^$step" "$RUN_LOG" || fail "$step not run"; done
+grep -qx "yay -Sua --noconfirm GOPATH=$home/.cache/go" "$RUN_LOG" || fail "yay not run with GOPATH under ~/.cache: $(grep ^yay "$RUN_LOG")"
 
 # 2. Conflict with the fork's patch: nothing changes, packages still update.
 echo alpha-upstream > "$remote/a.txt"; g -C "$remote" commit -qam three; g -C "$remote" tag v1.2.0
