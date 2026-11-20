@@ -108,6 +108,14 @@ adds to upstream files.
 - **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-app-icons-regressions.sh`.
 - **Drop when:** upstream's installer provides the bundled icons without its package.
 
+### Bar clears the rounded screen corners
+
+- **Kind:** 1, useful to anyone with a rounded panel (patch `0008`), plus a Fold-only seed. **Upstream candidate.**
+- **Bug:** on the unfolded Fold the inner screen's 142 px corners clip the bar's first and last widgets; the cutouts file only describes a top notch, and a Hyprland reserved area doesn't move widgets sideways.
+- **Fix:** patch `0008` adds `[bar] corner-radius` (physical px, default 0): the bar starts its side widgets where the corner circle meets the bar at a quarter of its thickness (where tall icons' tops sit), at any scale. `install_bar_corner_radius` seeds `corner-radius = 142` into `~/.config/omarchy/shell.toml` when absent.
+- **Where:** `patches/0008-bar-clear-of-rounded-corners.patch`, `patches/KNOWN-TREES`, `lib/config-overlay.sh`, `tests/fold-omarchy-update-regressions.sh`.
+- **Drop when:** upstream ships a corner or side-inset setting for the bar and the Fold uses it.
+
 ## Quick checks
 
 - `bash tests/fold-omarchy-update-regressions.sh`; `bash tests/omarchy-packaged-helpers-regressions.sh`

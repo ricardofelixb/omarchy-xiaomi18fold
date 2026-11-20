@@ -108,6 +108,42 @@ echo 'scale = 2' > "$ovhome/.config/hypr/monitors.lua"
 [[ $(cat "$ovhome/.config/hypr/touch.lua") == 'new = 1' ]] || fail 'update did not seed the missing touch.lua'
 
 
+# 5b. The overlay seeds the Fold's corner radius into shell.toml: new file, existing [bar], a user value kept.
+toml=$ovhome/.config/omarchy/shell.toml
+overlay() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay 2>/dev/null) || true; }
+overlay
+[[ $(cat "$toml") == $'\n[bar]\ncorner-radius = 142' ]] || fail "shell.toml not seeded: $(cat "$toml")"
+printf '[font]\nbase-size = 12\n[bar]\nposition = "top"\n' > "$toml"; overlay
+[[ $(cat "$toml") == $'[font]\nbase-size = 12\n[bar]\ncorner-radius = 142\nposition = "top"' ]] || fail "existing [bar] not extended: $(cat "$toml")"
+printf '[bar]\ncorner-radius = 100\n' > "$toml"; overlay; overlay
+[[ $(cat "$toml") == $'[bar]\ncorner-radius = 100' ]] || fail "user corner-radius not kept: $(cat "$toml")"
+
+printf '[bar] # appearance\nposition = "top"\n' > "$toml"; overlay
+[[ $(cat "$toml") == $'[bar] # appearance\ncorner-radius = 142\nposition = "top"' ]] || fail "commented [bar] header not extended: $(cat "$toml")"
+printf '[other]\ncorner-radius = 12\n' > "$toml"; overlay
+[[ $(cat "$toml") == $'[other]\ncorner-radius = 12\n\n[bar]\ncorner-radius = 142' ]] || fail "radius in another section blocked the seed: $(cat "$toml")"
+printf '[bar]\nposition = "top"\n' > "$ovhome/real.toml"; rm -f "$toml"; ln -s "$ovhome/real.toml" "$toml"; overlay
+[[ -L $toml && $(cat "$ovhome/real.toml") == $'[bar]\ncorner-radius = 142\nposition = "top"' ]] || fail "symlinked shell.toml was replaced or not extended"
+rm -f "$toml"
+printf '[bar]\nposition = "top"\n' > "$toml"; chmod 444 "$toml"; overlay
+[[ $(cat "$toml") == $'[bar]\ncorner-radius = 142\nposition = "top"' && $(stat -c %a "$toml") == 444 ]] || fail "read-only shell.toml not extended with its mode kept: $(cat "$toml")"
+chmod 644 "$toml"; rm -f "$toml"
+# The overlay's status carries a failed seed (the update reports it), but an existing radius needs no write at all.
+overlay_rc() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay >/dev/null 2>&1); }
+printf '[bar]\nposition = "top"\n' > "$toml"
+for helper in fcitx5-autostart host-run portal-autostart lock-ime-reset-autostart; do : > "$ov/container/bin/$helper"; done
+overlay_rc || fail 'the overlay fails even when shell.toml is writable'
+rm -f "$ov/container/bin/lock-ime-reset-autostart"; rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"
+if overlay_rc; then fail 'a failed helper install was hidden by a successful radius seed'; fi
+: > "$ov/container/bin/lock-ime-reset-autostart"
+rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"; chmod 555 "${toml%/*}"
+if overlay_rc; then chmod 755 "${toml%/*}"; fail 'an unwritable config dir hid a failed corner-radius seed'; fi
+chmod 755 "${toml%/*}"
+printf '[bar]\ncorner-radius = 100\n' > "$toml"; chmod 555 "${toml%/*}"
+overlay_rc || { chmod 755 "${toml%/*}"; fail 'a set corner-radius in a read-only dir still failed'; }
+chmod 755 "${toml%/*}"; [[ $(cat "$toml") == $'[bar]\ncorner-radius = 100' ]] || fail 'a set corner-radius was changed'
+rm -f "$toml"
+
 # 4b. A missing skip list leaves every migration pending instead of running them all.
 : > "$RUN_LOG"; mv "$fold/container/update-skip-migrations.txt" "$work/skip.bak"
 out=$(REMOTE=$work/nowhere run) || true

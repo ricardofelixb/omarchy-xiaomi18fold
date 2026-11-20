@@ -14,3 +14,4 @@ a5f9eff4fbf84aab2902737e5bf7774e5a1fd3f2 0002-ARM-fcitx5-.local-bin-fcitx5-autos
 c45ef1b2a784f80c808b8c015cb942636bbd8ff1 0005-programs-only-tool-provisioning.patch@261be25
 f03f0b7a32c4decebe75ab10e0b198fb13272fa8 0006-preserve-installer-home-layout.patch@261be25
 7be8f8895508c25c4b29850d03f60b7fd81a9ec2 0007-route-update-to-fold-omarchy-update.patch@261be25
+cb06549f60a583fa2397a629221e0d675102309e 0008-bar-clear-of-rounded-corners.patch@261be25

@@ -26,8 +26,35 @@ install_input_defaults() {
     echo "Preserved edited/symlinked $target; reviewed defaults: $baseline.dist"
   fi
 }
+# The Fold's inner screen has 142 px corners that clip the bar's end widgets. Seed the radius into the
+# user's shell.toml (patch 0008 reads it) when no corner-radius is set; a value the user wrote stays.
+install_bar_corner_radius() {
+  local toml real tmp
+  local bar_header='^[[:space:]]*\[bar\][[:space:]]*(#.*)?$'   # indentation or a trailing comment is valid TOML
+  toml="$HOME/.config/omarchy/shell.toml"
+  mkdir -p "${toml%/*}" || return 1
+  real=$(readlink -f "$toml")   # replace the symlink's target, not the symlink
+  # Nothing to do when [bar] already sets a radius (one in another table doesn't count).
+  [[ ! -e $real ]] || ! awk -v hdr="$bar_header" '
+    /^[[:space:]]*\[/ { inbar = ($0 ~ hdr) }
+    inbar && /^[[:space:]]*corner-radius[[:space:]]*=/ { found = 1 }
+    END { exit !found }' "$real" || return 0
+  [[ -e $real ]] || : > "$real" || return 1
+  tmp=$(mktemp "$real.XXXXXX") || return 1
+  if awk -v hdr="$bar_header" '
+    $0 ~ hdr && !n { n = NR }
+    { line[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) { print line[i]; if (i == n) print "corner-radius = 142" }
+      if (!n) print "\n[bar]\ncorner-radius = 142"
+    }' "$real" > "$tmp" && chmod --reference="$real" "$tmp" && mv -f "$tmp" "$real"; then
+    return 0
+  fi
+  rm -f "$tmp"
+  return 1
+}
 install_config_overlay() {
-  local file relative
+  local file relative rc=0
   while IFS= read -r -d '' file; do
     relative=${file#"$ROOT/config/"}
     # This file is merged by configure_build_directories, not overwritten.
@@ -40,17 +67,20 @@ install_config_overlay() {
     if [[ $relative == fcitx5/* && ( -e $HOME/.config/$relative || -L $HOME/.config/$relative ) ]]; then continue; fi
     install -Dm644 "$file" "$HOME/.config/$relative"
   done < <(find "$ROOT/config" -type f -print0)
-  install -Dm755 "$ROOT/container/bin/fcitx5-autostart" "$HOME/.local/bin/fcitx5-autostart"
+  install -Dm755 "$ROOT/container/bin/fcitx5-autostart" "$HOME/.local/bin/fcitx5-autostart" || rc=1
   # Xiaomi 18 Fold helpers (display guard, touch flush, dock, OSK toggle, window menu)
   for _fold_bin in fold-display-guard fold-window-menu fold-touch-flush-req fold-dismiss-overlays \
       fold-session-rescue omarchy-osk-toggle fold-dock fold-drawer fold-hyprgrass-build fold-omarchy-update; do
     if [[ -f $ROOT/container/bin/$_fold_bin ]]; then
-      install -Dm755 "$ROOT/container/bin/$_fold_bin" "$HOME/.local/bin/$_fold_bin"
+      install -Dm755 "$ROOT/container/bin/$_fold_bin" "$HOME/.local/bin/$_fold_bin" || rc=1
     fi
   done
-  install -Dm755 "$ROOT/container/bin/host-run" "$HOME/.local/bin/host-run"
-  install -Dm755 "$ROOT/container/bin/portal-autostart" "$HOME/.local/bin/portal-autostart"
-  install -Dm755 "$ROOT/container/bin/lock-ime-reset-autostart" "$HOME/.local/bin/lock-ime-reset-autostart"
+  install -Dm755 "$ROOT/container/bin/host-run" "$HOME/.local/bin/host-run" || rc=1
+  install -Dm755 "$ROOT/container/bin/portal-autostart" "$HOME/.local/bin/portal-autostart" || rc=1
+  install -Dm755 "$ROOT/container/bin/lock-ime-reset-autostart" "$HOME/.local/bin/lock-ime-reset-autostart" || rc=1
+  # Seed last so a failure skips none of the installs above; any failed install or seed is the status.
+  install_bar_corner_radius || rc=1
+  return "$rc"
 }
 # fold-omarchy-update runs without the fork checkout, so keep a copy of what it needs.
 install_fold_payload() {
