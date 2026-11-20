@@ -33,8 +33,20 @@ run
 echo changed > "$icons/Basecamp.png"
 run
 [[ $(cat "$dest/basecamp.png") == changed && $(wc -l < "$CACHE_LOG") == 2 ]] || fail 'changed icon not refreshed'
+# An icon already in the target that the fork did not install is the user's (a custom file, a webapp
+# icon) and is kept, while one it installed earlier is refreshed. A byte-identical copy is adopted.
+echo custom > "$dest/zoom.png"; echo bundled > "$icons/Zoom.png"
+echo handmade > "$dest/x.png"; echo handmade > "$icons/X.png"
+run
+[[ $(cat "$dest/zoom.png") == custom ]] || fail 'a user icon with a bundled name was overwritten'
+echo handmade2 > "$icons/X.png"; echo bundled2 > "$icons/Zoom.png"
+run
+[[ $(cat "$dest/x.png") == handmade2 ]] || fail 'an identical copy was not adopted and refreshed'
+[[ $(cat "$dest/zoom.png") == custom ]] || fail 'a user icon was overwritten on a later run'
+
 # A copy that fails (read-only apps dir) must not look like success; the other icons still install.
-echo new > "$icons/HEY.png"; echo old > "$dest/hey.png"
+echo old > "$icons/HEY.png"; run
+echo new > "$icons/HEY.png"
 chmod a-w "$dest"
 if run 2>/dev/null; then chmod u+w "$dest"; fail 'a failed icon copy returned success'; fi
 chmod u+w "$dest"
