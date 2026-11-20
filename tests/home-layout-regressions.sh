@@ -7,7 +7,7 @@ export HOME="$work/home"
 unset XDG_CONFIG_HOME
 mkdir -p "$HOME"
 bash "$ROOT/lib/home-layout.sh"
-for name in Work Desktop Documents Downloads Music Pictures Public Templates Videos; do
+for name in Work Desktop Documents Downloads Music Pictures Projects Public Templates Videos; do
   [[ -d $HOME/$name ]]
 done
 [[ $(wc -l < "$HOME/.config/user-dirs.dirs") == 8 ]]
