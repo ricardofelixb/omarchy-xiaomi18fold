@@ -148,11 +148,19 @@ adds to upstream files.
 - **Where:** `host/install.sh`, `lib/config-overlay.sh`, `tests/installer-regressions.sh`, `tests/fold-omarchy-update-regressions.sh`.
 - **Drop when:** the Terminal app's virtio-snd answers reliably.
 
+### Omarchy idle lock off
+
+- **Kind:** 2, specific to this phone setup.
+- **Bug:** once stay-awake was off, Omarchy locked the desktop after 300 s and it could not be unlocked: the container user's password is locked (`passwd -S` → L) and the installer never sets one.
+- **Fix:** `lib/idle-lock-off.sh` sets `.idle.lock = 0` in `~/.config/omarchy/shell.json` (Omarchy's idle service treats <= 0 as disabled), keeping every other key and adding `"version": 1` when missing (Omarchy ignores a file without it); it writes numbers back exactly as read and refuses (exit 1) on a strict-JSON failure or another version; `configure_stay_awake` calls it and no longer prints the password warning. Android's own lock protects the phone.
+- **Where:** `lib/idle-lock-off.sh`, `container/install.sh`, `container/README.md`, `docs/troubleshooting.md`, `tests/idle-lock-off-regressions.sh`, `tests/run.sh`.
+- **Drop when:** the container gets a real user password, or Omarchy offers an idle-lock setting that tolerates a locked password.
+
 ## Quick checks
 
 - `bash tests/run.sh --check patches`
 - `bash tests/fold-omarchy-update-regressions.sh`; `bash tests/omarchy-packaged-helpers-regressions.sh`
-- `bash tests/omarchy-app-icons-regressions.sh`
+- `bash tests/omarchy-app-icons-regressions.sh`; `bash tests/idle-lock-off-regressions.sh`
 - `bash tests/fold-drawer-regressions.sh`
 - `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`

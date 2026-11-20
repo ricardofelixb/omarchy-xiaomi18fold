@@ -30,9 +30,10 @@ The local GSettings keyfile backend avoids writing through the host dconf servic
 `config-share/fcitx5/rime/default.custom.yaml` is the only Rime share overlay;
 no learned dictionaries or personal application profiles are included.
 
-Stay-awake defaults to ON on every installer run. A locked or missing password
-prints a warning. Set a password before using `omarchy toggle idle` or manually
-locking the session. Host services and hardware configuration are not provisioned
+Stay-awake defaults to ON on every installer run, and the installer sets
+`.idle.lock = 0` in `~/.config/omarchy/shell.json` (the screensaver timeout stays):
+the container user's password is locked, so the Omarchy lock screen could never be
+unlocked, and Android's own lock protects the phone. Host services and hardware configuration are not provisioned
 here; desktop launch remains the host launcher's job.
 
 Both profiles install pinned mise and AI programs after desktop provisioning.

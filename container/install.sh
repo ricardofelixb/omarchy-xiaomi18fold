@@ -341,12 +341,13 @@ configure_input_and_fonts() {
 configure_stay_awake() {
   mkdir -p "$HOME/.local/state/omarchy/indicators"
   touch "$HOME/.local/state/omarchy/indicators/stay-awake"
-  local status
-  status=$(as_root passwd -S "$(id -un)" | awk '{print $2}')
-  if [[ $status == L || $status == LK || $status == NP ]]; then
-    echo 'WARNING: Password is locked or unset. Do not lock the desktop; set a password before enabling idle locking.'
+  # The container user's password is locked, so Omarchy's lock screen could never be
+  # unlocked; Android's own lock protects the phone. Turn the idle lock off.
+  if bash "$ROOT/lib/idle-lock-off.sh"; then
+    echo 'Stay-awake is ON and the Omarchy idle lock is off (Android locks the phone).'
+  else
+    echo 'WARNING: Stay-awake is ON but the Omarchy idle lock is still on; fix shell.json and rerun the installer.'
   fi
-  echo 'Stay-awake is ON. After setting a password, use omarchy toggle idle to enable idle locking.'
   OMARCHY_INSTALL_USER=$(id -un) "$OMARCHY_PATH/bin/omarchy-apply-lock"
 }
 install_tool_programs() {
@@ -413,7 +414,7 @@ step configure_bashrc 'Append marked Omarchy default bash configuration and bin 
 step provision_user_headless 'Run omarchy-provision-user headless; seed Tokyo Night theme'
 step configure_input_and_fonts 'Install configuration-only Rime presets, local keyfile backend, CJK fonts'
 step configure_gtk_im_module 'Set gtk-im-module=fcitx in GTK 3/4 settings.ini for XWayland apps; keep existing keys'
-step configure_stay_awake 'Default stay-awake ON, configure lock PAM, warn for locked passwords'
+step configure_stay_awake 'Default stay-awake ON, turn the idle lock off in shell.json, configure lock PAM'
 step install_tool_programs 'Install verified mise and AI programs only (both profiles; failures are nonfatal)'
 step build_hyprgrass 'Build the hyprgrass touch-gesture plugin for the installed Hyprland (full profile; failures are nonfatal)'
 step report_optional_results 'Report every optional installation result and highlight failures'
