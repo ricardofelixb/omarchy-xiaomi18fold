@@ -115,20 +115,24 @@ configure_build_directories() {
   local file="$HOME/.config/pacman/makepkg.conf"
   touch "$file"
   if grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
-    # Refresh the managed block in place so settings added later (GOPATH) reach existing installs.
+    # Refresh the managed block so settings added later (GOPATH) reach existing installs.
+    # Failing here stops the installer: AUR builds without GOPATH would fill ~/go.
     if ! grep -q '^# END omarchy-alarm build$' "$file"; then
-      echo "WARNING: $file has a build block without its end marker; left unchanged. Fix it by hand." >&2
-      return 0
+      echo "ERROR: $file has a build block without its end marker; fix it by hand and rerun." >&2
+      return 1
     fi
-    local tmp
-    tmp=$(mktemp "$file.XXXXXX") || return 1
+    local target tmp
+    target=$(readlink -f -- "$file") # write through a symlinked dotfile instead of replacing the link
+    tmp=$(mktemp "$target.XXXXXX") || return 1
     if awk -v block="$ROOT/config/pacman/makepkg.conf" '
       /^# BEGIN omarchy-alarm build$/ { print; while ((getline line < block) > 0) print line; skip = 1; next }
       /^# END omarchy-alarm build$/ { skip = 0 }
-      !skip' "$file" > "$tmp" && chmod --reference="$file" "$tmp" && mv -f "$tmp" "$file"; then :; else
-      rm -f "$tmp"
-      echo "WARNING: could not refresh the build block in $file; left unchanged." >&2
+      !skip' "$target" > "$tmp" && chmod --reference="$target" "$tmp" && mv -f "$tmp" "$target"; then
+      return 0
     fi
+    rm -f "$tmp"
+    echo "ERROR: could not refresh the build block in $file; it is unchanged." >&2
+    return 1
   else
     {
       printf '\n# BEGIN omarchy-alarm build\n'
