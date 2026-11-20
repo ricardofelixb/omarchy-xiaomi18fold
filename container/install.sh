@@ -343,8 +343,11 @@ configure_stay_awake() {
   touch "$HOME/.local/state/omarchy/indicators/stay-awake"
   # The container user's password is locked, so Omarchy's lock screen could never be
   # unlocked; Android's own lock protects the phone. Turn the idle lock off.
-  bash "$ROOT/lib/idle-lock-off.sh"
-  echo 'Stay-awake is ON and the Omarchy idle lock is off (Android locks the phone).'
+  if bash "$ROOT/lib/idle-lock-off.sh"; then
+    echo 'Stay-awake is ON and the Omarchy idle lock is off (Android locks the phone).'
+  else
+    echo 'WARNING: Stay-awake is ON but the Omarchy idle lock is still on; fix shell.json and rerun the installer.'
+  fi
   OMARCHY_INSTALL_USER=$(id -un) "$OMARCHY_PATH/bin/omarchy-apply-lock"
 }
 install_tool_programs() {
