@@ -154,6 +154,14 @@ omarchy_seed_home_defaults() {
     [[ -z $(tail -c1 "$HOME/.config/gtk-3.0/bookmarks") ]] || echo >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
     echo "$bookmark" >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
   done
+  # Compose shortcuts (Quattro creates this only when missing); the identity lines only when the name/email are known.
+  if [[ ! -e $HOME/.XCompose && ! -L $HOME/.XCompose ]]; then
+    {
+      printf '# Run omarchy-restart-xcompose to apply changes\n\n# Include fast emoji access\ninclude "/usr/share/omarchy/default/xcompose"\n\n# Identification\n'
+      [[ -z ${OMARCHY_USER_NAME:-} ]] || printf '<Multi_key> <space> <n> : "%s"\n' "$OMARCHY_USER_NAME"
+      [[ -z ${OMARCHY_USER_EMAIL:-} ]] || printf '<Multi_key> <space> <e> : "%s"\n' "$OMARCHY_USER_EMAIL"
+    } > "$HOME/.XCompose" || failed=1
+  fi
   if [[ -d $skill/omarchy ]]; then
     for dir in .agents .claude .codex .pi/agent; do
       mkdir -p "$HOME/$dir/skills" || { failed=1; continue; }

@@ -86,6 +86,16 @@ rm -f "$work/home/Projects"
 rm -rf "${b:?}"; mkdir -p "$work/cpbin"
 printf '#!/bin/bash\n[[ ${*: -1} == *screensaver.txt ]] && exit 1\nexec /usr/bin/cp "$@"\n' > "$work/cpbin/cp"; chmod +x "$work/cpbin/cp"
 ( PATH=$work/cpbin:$PATH; seed ) && fail 'a failed screensaver.txt copy must fail the seeding'
+# ~/.XCompose is created when missing (name/email only when known) and never replaced; the installer's
+# provisioning, whose upstream script rewrites it, keeps an existing one.
+rm -f "$work/home/.XCompose"; seed
+grep -q 'include "/usr/share/omarchy/default/xcompose"' "$work/home/.XCompose" || fail 'the XCompose file was not created'
+echo custom > "$work/home/.XCompose"; seed
+[[ $(cat "$work/home/.XCompose") == custom ]] || fail 'an existing XCompose file was replaced by the seeding'
+mkdir -p "$work/provbin"; printf '#!/bin/bash\necho upstream > "$HOME/.XCompose"\n' > "$work/provbin/omarchy-provision-user"; chmod +x "$work/provbin/omarchy-provision-user"
+( HOME=$work/home OMARCHY_PATH=$work; mkdir -p "$work/bin"; cp "$work/provbin/omarchy-provision-user" "$work/bin/"
+  eval "$(sed -n '/^provision_user_headless() {/,/^}/p' "$ROOT/container/install.sh")"; provision_user_headless )
+[[ $(cat "$work/home/.XCompose") == custom ]] || fail 'the installer provisioning replaced an existing XCompose file'
 
 # 4. The installer and the updater both call it.
 grep -q 'omarchy_install_packaged_helpers' <(sed -n '/^install_system_helpers() {/,/^}/p' "$ROOT/container/install.sh") || fail 'installer does not install the helpers'
