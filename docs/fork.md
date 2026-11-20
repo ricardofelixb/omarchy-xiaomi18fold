@@ -151,7 +151,8 @@ adds to upstream files.
   container user like the DRM/input ones; the new `audio-autostart` starts `pipewire`, `wireplumber` and
   `pipewire-pulse` at login (the container has no systemd to do it). Playback only: the Android Terminal
   app's virtio-snd times out every capture request (`control message (0x101) timeout`), so a WirePlumber rule
-  skips ACP probing (it opens the capture PCM and stalls) and drops the `alsa_input` node: one sink, no source.
+  skips ACP probing (it opens the capture PCM and stalls), drops the `alsa_input` node and pins the sink to
+  2ch/48k/S16LE (unpinned, it opens the PCM at 64 channels, which the host never answers and wedges virtio-snd).
 - **Where:** `host/install.sh`, `host/bin/arch-hyprland`, `container/bin/audio-autostart`,
   `lib/config-overlay.sh`, `config/hypr/autostart.lua`, `config/wireplumber/wireplumber.conf.d/51-fold-playback-only.conf`,
   `tests/installer-regressions.sh`,

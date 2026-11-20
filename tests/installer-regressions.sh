@@ -647,7 +647,13 @@ wp=$wp/51-fold-playback-only.conf
 assert_has "$wp" 'api.alsa.use-acp = false'
 assert_has "$wp" 'node.name = "~alsa_input.*"'
 assert_has "$wp" 'node.disabled = true'
-pass 'WirePlumber is set to playback only (no ACP probe, no alsa_input node)'
+# The playback node must not open the PCM at its 64-channel maximum: that request wedges virtio-snd.
+assert_has "$wp" 'node.name = "~alsa_output.*"'
+assert_has "$wp" 'audio.channels = 2'
+assert_has "$wp" 'audio.position = [ FL, FR ]'
+assert_has "$wp" 'audio.rate = 48000'
+assert_has "$wp" 'audio.format = "S16LE"'
+pass 'WirePlumber is set to playback only (no ACP probe, no alsa_input node, 2ch/48k/S16 output)'
 
 # The ownership helper must never follow a link the user planted: ~/.config -> a folder elsewhere
 # (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal
