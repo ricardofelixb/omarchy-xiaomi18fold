@@ -44,14 +44,15 @@ skipped
 printf '{"version":1,"idle":{"lock":300},"x":NaN}\n' > "$cfg"
 skipped
 [[ $(cat "$cfg") == '{"version":1,"idle":{"lock":300},"x":NaN}' ]]
-# A number Python would write back as Infinity (invalid JSON, which Omarchy rejects) is refused.
-printf '{"version":1,"idle":{"lock":300},"custom":1e400}\n' > "$cfg"
-skipped
-[[ $(cat "$cfg") == '{"version":1,"idle":{"lock":300},"custom":1e400}' ]]
-# Ordinary numbers keep their value and the result is strict JSON.
-printf '{"version":1,"a":1.5,"b":-2,"c":1e2,"d":12345678901234567890,"idle":{"lock":300}}\n' > "$cfg"
+# Numbers are written back as they were read, even ones Python would turn into Infinity
+# (invalid JSON, which Omarchy rejects), and the result is strict JSON.
+printf '{"version":1.0,"a":1.5,"b":-2,"c":1e2,"d":12345678901234567890,"custom":1e400,"s":"\\u00e9 \\"x\\"","idle":{"lock":300}}\n' > "$cfg"
 run
-[[ $(jq -c '[.a,.b,.c==100,.d,.idle.lock]' "$cfg") == '[1.5,-2,true,12345678901234567890,0]' ]]
+grep -q '"custom": 1e400' "$cfg"
+grep -q '"c": 1e2' "$cfg"
+grep -q '"d": 12345678901234567890' "$cfg"
+grep -q '"version": 1.0' "$cfg"
+[[ $(jq -r '.idle.lock, .s' "$cfg") == $'0\né "x"' ]]
 python3 -I -c 'import json,sys; json.load(open(sys.argv[1]), parse_constant=lambda c: sys.exit(1))' "$cfg"
 printf '[]\n' > "$cfg"
 skipped
