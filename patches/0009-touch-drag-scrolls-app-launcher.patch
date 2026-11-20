@@ -1,0 +1,73 @@
+From 9f6ce9b07dd699ee3264f1a8a6d4dfee2bd620bd Mon Sep 17 00:00:00 2001
+From: omarchy-alarm-nspawn <noreply@example.com>
+Date: Fri, 20 Nov 2026 01:33:40 +0000
+Subject: [PATCH] Let a touch drag scroll the app launcher
+
+Every launcher cell kept the grid from taking a press for a scroll, so a finger dragging over the apps picked one up instead and dropped it, closing the launcher, and touch could never scroll.
+
+Only a mouse press keeps the grid off now. A touch scrolls it, and picks an app up only after being held still.
+---
+ shell/plugins/dock/AppGrid.qml | 27 ++++++++++++++++++++++++---
+ 1 file changed, 24 insertions(+), 3 deletions(-)
+
+diff --git a/shell/plugins/dock/AppGrid.qml b/shell/plugins/dock/AppGrid.qml
+index 53c771d..e38bfdc 100644
+--- a/shell/plugins/dock/AppGrid.qml
++++ b/shell/plugins/dock/AppGrid.qml
+@@ -323,6 +323,17 @@ Item {
+               property point pressPoint
+               // A press that wanders is a drag in the making, not a click.
+               property bool moved: false
++              // Whether this press may pick the app up. A mouse press may at once;
++              // a touch scrolls the grid instead, until it has been held still.
++              property bool armed: false
++
++              // Not MouseArea's onPressAndHold: connecting that handler stops a
++              // held mouse press from counting as a click.
++              Timer {
++                id: holdTimer
++                interval: 500
++                onTriggered: cell.armed = true
++              }
+ 
+               width: root.cellWidth
+               height: root.cellHeight
+@@ -375,22 +386,32 @@ Item {
+                 hoverEnabled: true
+                 cursorShape: Qt.PointingHandCursor
+                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+-                // The grid would otherwise take a dragging press for a scroll.
+-                preventStealing: true
++                // An armed press keeps the grid from taking its drag for a scroll.
++                preventStealing: cell.armed
+                 onContainsMouseChanged: if (containsMouse && !root.dragging) root.selectedIndex = cell.index
+                 onPressed: function(event) {
+                   cell.moved = false
++                  cell.armed = event.source === Qt.MouseEventNotSynthesized
++                  if (!cell.armed) holdTimer.restart()
+                   cell.pressPoint = Qt.point(event.x, event.y)
+                 }
+                 onPositionChanged: function(event) {
+                   if (!(pressedButtons & Qt.LeftButton)) return
+                   if (!cell.moved && Math.hypot(event.x - cell.pressPoint.x, event.y - cell.pressPoint.y) > Style.space(4)) cell.moved = true
++                  if (!cell.armed) {
++                    if (cell.moved) holdTimer.stop()
++                    return
++                  }
+                   if (cell.moved) root.dragTo(cell.modelData, cell.mapToItem(panel.contentItem, event.x, event.y))
+                 }
+                 onReleased: function(event) {
++                  holdTimer.stop()
+                   if (root.dragging && event.button === Qt.LeftButton) root.dropDrag()
+                 }
+-                onCanceled: if (root.dragging) root.close()
++                onCanceled: {
++                  holdTimer.stop()
++                  if (root.dragging) root.close()
++                }
+                 onClicked: function(event) {
+                   if (cell.moved) return
+                   if (event.button === Qt.RightButton) {
+-- 
+2.47.3
+
