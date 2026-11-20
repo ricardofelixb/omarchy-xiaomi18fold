@@ -58,7 +58,7 @@ out=$(run) && fail 'a missing helper must fail the run'
 grep -q 'no omarchy-locale-generate' <<< "$out" && [[ ! -e $dest/usr/bin/omarchy-locale-generate && ! -e $dest/etc/sudoers.d/omarchy-locale-generate ]] || fail "missing helper handling wrong: $out"
 
 # 5. A home without the quattro one-time files gets them; files the user already has are left alone.
-rm -rf "${OP:?}/default" "${work:?}/home"; mkdir -p "$OP/default/nautilus-python/extensions" "$OP/default/agents/skills/omarchy" "$work/home/.config/omarchy/branding"
+rm -rf "${OP:?}/default" "${work:?}/home"; mkdir -p "$OP/default/nautilus-python/extensions" "$OP/default/agents/skills"/{omarchy,omarchy-app,diagnose-crash} "$work/home/.config/omarchy/branding"
 echo icon > "$OP/icon.txt"; echo logo > "$OP/logo.txt"; echo ext > "$OP/default/nautilus-python/extensions/localsend.py"; echo ext2 > "$OP/default/nautilus-python/extensions/transcode.py"
 seed() { (HOME=$work/home OMARCHY_PATH=$OP; source "$ROOT/lib/omarchy-move.sh"; omarchy_seed_home_defaults); }
 echo custom > "$work/home/.config/omarchy/branding/screensaver.txt"
@@ -68,6 +68,12 @@ seed; b=$work/home/.config/omarchy/branding
 rm -rf "$b"; seed
 [[ $(cat "$b/about.txt") == icon && $(cat "$b/screensaver.txt") == logo ]] || fail 'a home without branding/ must get both files'
 [[ -f $work/home/.local/share/nautilus-python/extensions/transcode.py && -L $work/home/.agents/skills/omarchy ]] || fail 'nautilus extensions or the agent skill link missing'
+# Every bundled skill is linked into every agent directory (and Hermes profiles); an existing entry stays.
+mkdir -p "$work/home/.hermes/profiles/p1"; rm -f "$work/home/.claude/skills/omarchy-app"; rm -f "$work/home/.codex/skills/diagnose-crash"; echo mine > "$work/home/.codex/skills/diagnose-crash"; seed
+for d in .agents .claude .codex .pi/agent .gemini/config .hermes .hermes/profiles/p1; do
+  for n in omarchy omarchy-app diagnose-crash; do [[ -e $work/home/$d/skills/$n ]] || fail "skill $n missing in $d"; done
+done
+[[ $(cat "$work/home/.codex/skills/diagnose-crash") == mine ]] || fail 'an existing skill entry was replaced'
 echo mine > "$work/home/.local/share/nautilus-python/extensions/localsend.py"; seed
 [[ $(cat "$work/home/.local/share/nautilus-python/extensions/localsend.py") == mine ]] || fail 'an existing nautilus extension was overwritten'
 # A bookmark and folder for Projects are made, an existing bookmark is not duplicated, an existing folder is kept.

@@ -162,11 +162,17 @@ omarchy_seed_home_defaults() {
       [[ -z ${OMARCHY_USER_EMAIL:-} ]] || printf '<Multi_key> <space> <e> : "%s"\n' "$OMARCHY_USER_EMAIL"
     } > "$HOME/.XCompose" || failed=1
   fi
-  if [[ -d $skill/omarchy ]]; then
-    for dir in .agents .claude .codex .pi/agent; do
+  # Every bundled agent skill, into the agent directories upstream's omarchy-provision-user uses (which the
+  # installer skips); an existing entry stays.
+  local sk name
+  for sk in "$skill"/*/; do
+    [[ -d $sk ]] || continue
+    sk=${sk%/}; name=${sk##*/}
+    for dir in .agents .claude .codex .pi/agent .gemini/config .hermes "$HOME"/.hermes/profiles/*/; do
+      [[ $dir == /* ]] && { [[ -d $dir ]] || continue; dir=${dir#"$HOME"/}; dir=${dir%/}; }
       mkdir -p "$HOME/$dir/skills" || { failed=1; continue; }
-      [[ -e $HOME/$dir/skills/omarchy || -L $HOME/$dir/skills/omarchy ]] || ln -s "$skill/omarchy" "$HOME/$dir/skills/omarchy" || failed=1
+      [[ -e $HOME/$dir/skills/$name || -L $HOME/$dir/skills/$name ]] || ln -s "$sk" "$HOME/$dir/skills/$name" || failed=1
     done
-  fi
+  done
   return "$failed"
 }
