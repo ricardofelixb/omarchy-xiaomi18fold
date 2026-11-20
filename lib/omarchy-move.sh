@@ -95,3 +95,34 @@ omarchy_install_packaged_helpers() {
   done
   return "$failed"
 }
+
+# Omarchy's package installs applications/icons/*.png as hicolor icons named by its safe_icon_name
+# (lowercase, runs of non-alphanumerics -> "-"); a git checkout has no package, so launcher entries
+# that use those themed names show the gear. Copies into the user's theme (no root). An icon already
+# there is the user's (a custom file, a webapp icon) unless it is byte-identical to the bundled one or
+# matches the checksum recorded when this function installed it ($FOLD_STATE/app-icons), so only the
+# fork's own icons are refreshed. Needs OMARCHY_PATH. Returns 1 if any icon could not be copied (the
+# rest are still installed).
+omarchy_install_app_icons() {
+  local theme=$HOME/.local/share/icons/hicolor png name dst sum changed=0 failed=0
+  local record=${FOLD_STATE:-$HOME/.local/state/fold}/app-icons
+  mkdir -p "$theme/256x256/apps" "${record%/*}" || return 1
+  touch "$record" || return 1
+  for png in "$OMARCHY_PATH"/applications/icons/*.png; do
+    [[ -f $png ]] || continue
+    name=$(basename "$png" .png | tr '[:upper:]' '[:lower:]' | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//')
+    dst=$theme/256x256/apps/$name.png
+    if [[ -e $dst ]] && ! cmp -s "$png" "$dst"; then
+      sum=$(sha256sum "$dst" | cut -d' ' -f1)
+      grep -Fxq "$name $sum" "$record" || continue
+    fi
+    if [[ ! -e $dst ]] || ! cmp -s "$png" "$dst"; then
+      if install -m644 "$png" "$dst"; then changed=1; else failed=1; continue; fi
+    fi
+    { grep -v "^$name " "$record"; echo "$name $(sha256sum "$dst" | cut -d' ' -f1)"; } > "$record.new" || true
+    mv -f "$record.new" "$record" || failed=1
+  done
+  # -t: the user theme dir has no index.theme of its own.
+  ((changed)) && { gtk-update-icon-cache -q -t "$theme" || true; }
+  return "$failed"
+}

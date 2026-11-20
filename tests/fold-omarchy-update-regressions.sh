@@ -38,6 +38,7 @@ printf '1000001 # boot loader\n' > "$fold/container/update-skip-migrations.txt"
 g init -q -b main "$remote"
 mkdir "$remote/migrations"
 echo alpha > "$remote/a.txt"; echo beta > "$remote/b.txt"
+mkdir -p "$remote/applications/icons"; echo icon > "$remote/applications/icons/HEY.png"
 for i in 1 2 3; do echo "echo ran-$i >> \"\$RUN_LOG\"" > "$remote/migrations/100000$i.sh"; done
 echo 'exit 1' >> "$remote/migrations/1000003.sh"
 g -C "$remote" add -A; g -C "$remote" commit -q -m one; g -C "$remote" tag v1.0.0
@@ -58,6 +59,7 @@ out=$(run) || fail "update failed: $out"
 [[ $(git -C "$OP" show arm-port:b.txt) == beta2 && $(git -C "$OP" show arm-port:a.txt) == alpha-fold ]] || fail "arm-port not on v1.1.0 with the fold patch: $out"
 [[ $(cut -d' ' -f1 "$home/.local/state/fold/omarchy-base") == v1.1.0 ]] || fail 'base not recorded'
 git -C "$OP" rev-parse -q --verify arm-port-prev >/dev/null || fail 'no arm-port-prev backup'
+[[ -f $home/.local/share/icons/hicolor/256x256/apps/hey.png ]] || fail 'bundled app icons not installed by the update'
 grep -q 'pacman -Syu --noconfirm UPDATE_PACMAN=1 ALLOW=1' "$RUN_LOG" || fail "pacman -Syu not run with the guard env: $(cat "$RUN_LOG")"
 ! grep -q ran-1 "$RUN_LOG" || fail 'skip-listed migration ran'
 [[ -f $home/.local/state/omarchy/migrations/1000001.sh ]] || fail 'skip-listed migration not marked done'
