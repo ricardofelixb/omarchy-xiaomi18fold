@@ -91,9 +91,18 @@ adds to upstream files.
 - **Where:** `lib/network.sh` (`network_resolv_config`), `README.md`, `tests/installer-regressions.sh`.
 - **Drop when:** upstream sets up container DNS from the host's resolver.
 
+### Packaged Omarchy helpers installed from the checkout
+
+- **Kind:** 1, useful to anyone running Omarchy from a git checkout. **Upstream candidate.**
+- **Bug:** Omarchy's package puts `omarchy-theme-set-browser-policy` and `omarchy-locale-generate` at `/usr/bin` with sudoers rules; a checkout has neither, so every theme change said "Theme not applied everywhere: omarchy-theme-set-browser failed".
+- **Fix:** `omarchy_install_packaged_helpers` copies those two and their rules (root-owned, no links, `visudo -cf`) from the checkout at install and after each `fold-omarchy-update`. Not installed: `omarchy-dns` (needs NetworkManager/systemd-resolved), the timezone rule, and the boot, kernel, hibernation, hardware, factory-reset and service helpers.
+- **Trust:** the rules are trusted because the user is already passwordless root here; if that is ever tightened, this needs a trust anchor (pinned sums or a verified fetch of the release).
+- **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-packaged-helpers-regressions.sh`, `tests/run.sh`.
+- **Drop when:** upstream ships an ARM package set, or the checkout path gets a dev-link rule for these helpers.
+
 ## Quick checks
 
-- `bash tests/fold-omarchy-update-regressions.sh`
+- `bash tests/fold-omarchy-update-regressions.sh`; `bash tests/omarchy-packaged-helpers-regressions.sh`
 - `bash tests/fold-drawer-regressions.sh`
 - `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`

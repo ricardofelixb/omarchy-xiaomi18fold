@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Move the arm-port branch of the Omarchy checkout onto another release, shared by
-# container/install.sh (existing installs) and fold-omarchy-update. Source it with OMARCHY_PATH,
+# Move the arm-port branch of the Omarchy checkout onto another release, and install the packaged-path
+# helpers from it; shared by container/install.sh (existing installs) and fold-omarchy-update. Source it with OMARCHY_PATH,
 # OMARCHY_REMOTE, FOLD_STATE and FOLD_PATCHES (the patches folder with BASE) set.
 # Returns 1 and leaves the checkout as it was when the move is not possible.
 omv_git() { git -C "$OMARCHY_PATH" -c advice.detachedHead=false -c notes.rewriteRef=refs/notes/fold -c user.name=omarchy-alarm-nspawn -c user.email=noreply@example.com "$@"; }
@@ -64,4 +64,34 @@ omarchy_move_to() {
   omv_git branch -f arm-port-prev "$tip" >/dev/null
   mkdir -p "$FOLD_STATE"; echo "$tag $new" > "$FOLD_STATE/omarchy-base"
   echo "Omarchy moved from $old_tag to $tag (previous arm-port kept as arm-port-prev)."
+}
+
+# Omarchy's package puts some helpers at /usr/bin/omarchy-* and their sudoers rules in /etc/sudoers.d; a git
+# checkout has neither, so theme and language changes that call those paths fail. Copy (never link: a sudoers
+# rule must not name a user-writable file) the ones that work in the container, as "helper:rule" pairs.
+# Left out on purpose: omarchy-dns (needs NetworkManager/systemd-resolved; the fork writes the container's
+# resolv.conf), the timezone rule (no timedated), omarchy-sudo-passwordless/-shell and the boot, kernel,
+# hibernation, hardware, factory-reset, provisioning and systemd-service helpers.
+OMV_PACKAGED_HELPERS=(omarchy-theme-set-browser-policy:omarchy-theme-browser omarchy-locale-generate:omarchy-locale-generate)
+# Trust: the files come from the user-writable checkout and visudo only checks syntax. That is accepted
+# because the user is already passwordless root in this container (the fork's installer sets it up and
+# Omarchy's update flow relies on sudo), so there is no privilege boundary to protect. If that is ever
+# tightened, this needs a trust anchor (pinned sums or a verified fetch of the release).
+# OMV_PACKAGED_ROOT is a test-only prefix for /usr/bin and /etc/sudoers.d. Returns 1 if any pair was not installed.
+omarchy_install_packaged_helpers() {
+  local pair helper rule tmp failed=0 root=${OMV_PACKAGED_ROOT:-}
+  for pair in "${OMV_PACKAGED_HELPERS[@]}"; do
+    helper=${pair%%:*} rule=${pair##*:}
+    if [[ ! -f $OMARCHY_PATH/bin/$helper || ! -f $OMARCHY_PATH/etc/sudoers.d/$rule ]]; then
+      omv_warn "Omarchy has no $helper or its sudoers rule $rule; not installed."; failed=1; continue
+    fi
+    # The helper first, so a rule never names a missing file; the rule only after visudo accepts it.
+    tmp=$(mktemp) && cp -- "$OMARCHY_PATH/etc/sudoers.d/$rule" "$tmp" || { failed=1; continue; }
+    if sudo install -Dm755 -o root -g root "$OMARCHY_PATH/bin/$helper" "$root/usr/bin/$helper" </dev/null &&
+       sudo visudo -cqf "$tmp" </dev/null &&
+       sudo install -Dm440 -o root -g root "$tmp" "$root/etc/sudoers.d/$rule" </dev/null; then :
+    else omv_warn "Could not install $helper with its sudoers rule $rule."; failed=1; fi
+    rm -f -- "$tmp"
+  done
+  return "$failed"
 }
