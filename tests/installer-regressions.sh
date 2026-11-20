@@ -631,6 +631,12 @@ rm "$ph/home/.config/systemd/user/pulseaudio.socket"; printf '[Socket]\nListenSt
 bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a second user-made unit'
 grep -qx '\[Socket\]' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.1" || fail 'a second backup replaced the first'
 grep -qx 'ListenStream=second' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.2" || fail 'the second user-made unit was not backed up'
+# A linked unit (systemctl --user link, even dangling) is backed up as a link, and an existing mask is left alone.
+rm "$ph/home/.config/systemd/user/pulseaudio.service"; ln -s /opt/own/pulseaudio.service "$ph/home/.config/systemd/user/pulseaudio.service"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a linked unit'
+[[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.service") == /dev/null ]] || fail 'a linked pulseaudio.service was left active'
+[[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.service.fold-bak.1") == /opt/own/pulseaudio.service ]] || fail 'the linked pulseaudio.service target was lost'
+[[ ! -e $ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.3 ]] || fail 'an existing mask was backed up'
 assert_has "$ROOT/host/install.sh" '/dev/input/event* /dev/snd/*; do'
 pass "host PulseAudio is masked (rerun-safe, user units backed up then masked) and /dev/snd's group reaches the container user"
 
