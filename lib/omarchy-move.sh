@@ -126,3 +126,53 @@ omarchy_install_app_icons() {
   ((changed)) && { gtk-update-icon-cache -q -t "$theme" || true; }
   return "$failed"
 }
+
+# Omarchy's package seeds these through /etc/skel and its quattro upgrade creates them once; neither runs here,
+# so a fresh install or a 4.0.4 -> 4.5 move lacked them (the screensaver looped "Error reading input file";
+# the Projects bookmark pointed at a folder nobody made). Mirrors that upgrade's steps, but only for what is
+# missing: nothing the user has is overwritten. Returns 1 if any step failed (it still tries the rest).
+# Skipped on purpose: the XDG settings and Downloads/Pictures/Videos handling the fork's home-layout and
+# omarchy-provision-user already do, hypr toggles/flags.lua (Hyprland copes without it), and everything else
+# the upgrade does (Limine, systemd --user, keyring, hardware).
+omarchy_seed_home_defaults() {
+  local root=$OMARCHY_PATH ext dir bookmark failed=0 skill=$OMARCHY_PATH/default/agents/skills
+  local branding=$HOME/.config/omarchy/branding ext_dir=$HOME/.local/share/nautilus-python/extensions
+  mkdir -p "$branding" "$ext_dir" || failed=1
+  [[ ! -f $root/icon.txt ]] || cp --update=none -- "$root/icon.txt" "$branding/about.txt" || failed=1
+  [[ ! -f $root/logo.txt ]] || cp --update=none -- "$root/logo.txt" "$branding/screensaver.txt" || failed=1
+  for ext in localsend.py transcode.py; do
+    [[ ! -f $root/default/nautilus-python/extensions/$ext ]] || cp --update=none -- "$root/default/nautilus-python/extensions/$ext" "$ext_dir/" || failed=1
+  done
+  mkdir -p "$HOME/.config/gtk-3.0" || failed=1
+  touch "$HOME/.config/gtk-3.0/bookmarks" || failed=1
+  for dir in Downloads Projects Pictures Videos; do
+    # A user file with a folder's name stays as it is (as lib/home-layout.sh does); the folder is skipped.
+    [[ -e $HOME/$dir || -L $HOME/$dir ]] || mkdir -p "$HOME/$dir" || failed=1
+    bookmark="file://$HOME/$dir $dir"
+    grep -qxF "$bookmark" "$HOME/.config/gtk-3.0/bookmarks" && continue
+    # An existing last line without a newline must not swallow the new entry.
+    [[ -z $(tail -c1 "$HOME/.config/gtk-3.0/bookmarks") ]] || echo >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
+    echo "$bookmark" >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
+  done
+  # Compose shortcuts (Quattro creates this only when missing); the identity lines only when the name/email are known.
+  if [[ ! -e $HOME/.XCompose && ! -L $HOME/.XCompose ]]; then
+    {
+      printf '# Run omarchy-restart-xcompose to apply changes\n\n# Include fast emoji access\ninclude "/usr/share/omarchy/default/xcompose"\n\n# Identification\n'
+      [[ -z ${OMARCHY_USER_NAME:-} ]] || printf '<Multi_key> <space> <n> : "%s"\n' "$OMARCHY_USER_NAME"
+      [[ -z ${OMARCHY_USER_EMAIL:-} ]] || printf '<Multi_key> <space> <e> : "%s"\n' "$OMARCHY_USER_EMAIL"
+    } > "$HOME/.XCompose" || failed=1
+  fi
+  # Every bundled agent skill, into the agent directories upstream's omarchy-provision-user uses (which the
+  # installer skips); an existing entry stays.
+  local sk name
+  for sk in "$skill"/*/; do
+    [[ -d $sk ]] || continue
+    sk=${sk%/}; name=${sk##*/}
+    for dir in .agents .claude .codex .pi/agent .gemini/config .hermes "$HOME"/.hermes/profiles/*/; do
+      [[ $dir == /* ]] && { [[ -d $dir ]] || continue; dir=${dir#"$HOME"/}; dir=${dir%/}; }
+      mkdir -p "$HOME/$dir/skills" || { failed=1; continue; }
+      [[ -e $HOME/$dir/skills/$name || -L $HOME/$dir/skills/$name ]] || ln -s "$sk" "$HOME/$dir/skills/$name" || failed=1
+    done
+  done
+  return "$failed"
+}

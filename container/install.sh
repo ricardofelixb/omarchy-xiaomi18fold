@@ -259,6 +259,10 @@ seed_omarchy_config() {
       cp -a --update=none "$item" "$HOME/.config/"
     fi
   done
+  # shellcheck source=../lib/omarchy-move.sh
+  source "$ROOT/lib/omarchy-move.sh"
+  omarchy_seed_home_defaults ||
+    echo 'FAILED (nonfatal) Omarchy home defaults: the screensaver may print "Error reading input file"; rerun to retry.' >&2
 }
 configure_gtk_im_module() { bash "$ROOT/lib/gtk-im-module.sh"; }
 configure_bashrc() {
@@ -282,10 +286,18 @@ BASHRC
 provision_user_headless() {
   # No graphical session or host dconf access; no copied identity or mise secrets.
   # --first-install marks shipped migrations done (bare-metal steps are wrong in nspawn).
-  env -u DISPLAY -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+  # Its install/user/xcompose.sh does `tee ~/.XCompose` unconditionally. A tee in front on PATH skips that one
+  # write when the user already has the file, so it is never touched (nothing to restore after an interruption).
+  local shim status=0
+  shim=$(mktemp -d) || return 1
+  printf '#!/bin/bash\nfor a; do [[ $a == "$HOME/.XCompose" && -e $a ]] && { cat >/dev/null; exit 0; }; done\nexec /usr/bin/tee "$@"\n' > "$shim/tee"
+  chmod +x "$shim/tee"
+  env -u DISPLAY -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE PATH="$shim:$PATH" \
     OMARCHY_SETUP_CONTEXT=provision-owner OMARCHY_THEME_HEADLESS=1 OMARCHY_PROGRAMS_ONLY=1 \
     OMARCHY_USER_NAME='' OMARCHY_USER_EMAIL='' GSETTINGS_BACKEND=keyfile \
-    "$OMARCHY_PATH/bin/omarchy-provision-user" --first-install
+    "$OMARCHY_PATH/bin/omarchy-provision-user" --first-install || status=$?
+  rm -rf "$shim"
+  return "$status"
 }
 configure_input_and_fonts() {
   local rime="$HOME/.local/share/fcitx5/rime"

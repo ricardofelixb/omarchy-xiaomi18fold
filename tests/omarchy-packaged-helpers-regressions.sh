@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Regressions for omarchy_install_packaged_helpers (lib/omarchy-move.sh): the helpers Omarchy's package
 # keeps at /usr/bin are installed as root-owned copies with their sudoers rules, a rule visudo rejects is
-# not installed, a missing helper is reported, and the installer and updater both call it.
+# not installed, a missing helper is reported, and the installer and updater both call it. Also
+# omarchy_seed_home_defaults: the one-time home files Omarchy's quattro upgrade makes (screensaver and
+# about branding, nautilus extensions, Projects folder and bookmarks, agent skill link) are created when
+# missing and never overwritten, and a failed copy makes the function fail.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
@@ -54,7 +57,59 @@ rm -rf "$dest"; rm "$OP/bin/omarchy-locale-generate"
 out=$(run) && fail 'a missing helper must fail the run'
 grep -q 'no omarchy-locale-generate' <<< "$out" && [[ ! -e $dest/usr/bin/omarchy-locale-generate && ! -e $dest/etc/sudoers.d/omarchy-locale-generate ]] || fail "missing helper handling wrong: $out"
 
+# 5. A home without the quattro one-time files gets them; files the user already has are left alone.
+rm -rf "${OP:?}/default" "${work:?}/home"; mkdir -p "$OP/default/nautilus-python/extensions" "$OP/default/agents/skills"/{omarchy,omarchy-app,diagnose-crash} "$work/home/.config/omarchy/branding"
+echo icon > "$OP/icon.txt"; echo logo > "$OP/logo.txt"; echo ext > "$OP/default/nautilus-python/extensions/localsend.py"; echo ext2 > "$OP/default/nautilus-python/extensions/transcode.py"
+seed() { (HOME=$work/home OMARCHY_PATH=$OP; source "$ROOT/lib/omarchy-move.sh"; omarchy_seed_home_defaults); }
+echo custom > "$work/home/.config/omarchy/branding/screensaver.txt"
+seed; b=$work/home/.config/omarchy/branding
+[[ $(cat "$b/screensaver.txt") == custom ]] || fail 'an existing screensaver.txt was overwritten'
+[[ $(cat "$b/about.txt") == icon ]] || fail 'missing about.txt not created'
+rm -rf "$b"; seed
+[[ $(cat "$b/about.txt") == icon && $(cat "$b/screensaver.txt") == logo ]] || fail 'a home without branding/ must get both files'
+[[ -f $work/home/.local/share/nautilus-python/extensions/transcode.py && -L $work/home/.agents/skills/omarchy ]] || fail 'nautilus extensions or the agent skill link missing'
+# Every bundled skill is linked into every agent directory (and Hermes profiles); an existing entry stays.
+mkdir -p "$work/home/.hermes/profiles/p1"; rm -f "$work/home/.claude/skills/omarchy-app"; rm -f "$work/home/.codex/skills/diagnose-crash"; echo mine > "$work/home/.codex/skills/diagnose-crash"; seed
+for d in .agents .claude .codex .pi/agent .gemini/config .hermes .hermes/profiles/p1; do
+  for n in omarchy omarchy-app diagnose-crash; do [[ -e $work/home/$d/skills/$n ]] || fail "skill $n missing in $d"; done
+done
+[[ $(cat "$work/home/.codex/skills/diagnose-crash") == mine ]] || fail 'an existing skill entry was replaced'
+echo mine > "$work/home/.local/share/nautilus-python/extensions/localsend.py"; seed
+[[ $(cat "$work/home/.local/share/nautilus-python/extensions/localsend.py") == mine ]] || fail 'an existing nautilus extension was overwritten'
+# A bookmark and folder for Projects are made, an existing bookmark is not duplicated, an existing folder is kept.
+bm=$work/home/.config/gtk-3.0/bookmarks
+[[ -d $work/home/Projects ]] && grep -qxF "file://$work/home/Projects Projects" "$bm" || fail 'Projects folder or bookmark missing'
+seed; [[ $(grep -c Projects "$bm") == 1 ]] || fail 'bookmark written twice'
+# A user file named Projects is kept and does not fail the seeding; a bookmarks file without a final newline
+# keeps its last entry intact.
+rm -rf "${work:?}/home/Projects" "${work:?}/home/.config/gtk-3.0"; echo mine > "$work/home/Projects"; mkdir -p "$work/home/.config/gtk-3.0"
+printf 'file:///srv/data Data' > "$bm"
+seed || fail 'an existing Projects file must not fail the seeding'
+[[ $(cat "$work/home/Projects") == mine ]] || fail 'the Projects file was replaced'
+grep -qxF 'file:///srv/data Data' "$bm" && grep -qxF "file://$work/home/Downloads Downloads" "$bm" || fail "bookmark joined to a line without a newline: $(cat "$bm")"
+rm -f "$work/home/Projects"
+# A failed copy is reported even when later steps succeed (cp stub fails for screensaver.txt).
+rm -rf "${b:?}"; mkdir -p "$work/cpbin"
+printf '#!/bin/bash\n[[ ${*: -1} == *screensaver.txt ]] && exit 1\nexec /usr/bin/cp "$@"\n' > "$work/cpbin/cp"; chmod +x "$work/cpbin/cp"
+( PATH=$work/cpbin:$PATH; seed ) && fail 'a failed screensaver.txt copy must fail the seeding'
+# ~/.XCompose is created when missing (name/email only when known) and never replaced; the installer's
+# provisioning, whose upstream script rewrites it, keeps an existing one.
+rm -f "$work/home/.XCompose"; seed
+grep -q 'include "/usr/share/omarchy/default/xcompose"' "$work/home/.XCompose" || fail 'the XCompose file was not created'
+echo custom > "$work/home/.XCompose"; seed
+[[ $(cat "$work/home/.XCompose") == custom ]] || fail 'an existing XCompose file was replaced by the seeding'
+mkdir -p "$work/provbin"; printf '#!/bin/bash\necho upstream | tee "$HOME/.XCompose" >/dev/null\ncat "$HOME/.XCompose" > "$HOME/.after-tee"\n' > "$work/provbin/omarchy-provision-user"; chmod +x "$work/provbin/omarchy-provision-user"
+( HOME=$work/home OMARCHY_PATH=$work; mkdir -p "$work/bin"; cp "$work/provbin/omarchy-provision-user" "$work/bin/"
+  eval "$(sed -n '/^provision_user_headless() {/,/^}/p' "$ROOT/container/install.sh")"; provision_user_headless )
+[[ $(cat "$work/home/.XCompose") == custom ]] || fail 'the installer provisioning replaced an existing XCompose file'
+# Checked right after the upstream write too: restoring a backup afterwards would leave a window where it is gone.
+[[ $(cat "$work/home/.after-tee") == custom ]] || fail 'the XCompose file was replaced while provisioning ran'
+rm -f "$work/home/.XCompose"; ( HOME=$work/home OMARCHY_PATH=$work; eval "$(sed -n '/^provision_user_headless() {/,/^}/p' "$ROOT/container/install.sh")"; provision_user_headless )
+[[ $(cat "$work/home/.XCompose") == upstream ]] || fail 'provisioning must still write a missing XCompose file'
+
 # 4. The installer and the updater both call it.
 grep -q 'omarchy_install_packaged_helpers' <(sed -n '/^install_system_helpers() {/,/^}/p' "$ROOT/container/install.sh") || fail 'installer does not install the helpers'
 grep -q 'omarchy_install_packaged_helpers' "$ROOT/container/bin/fold-omarchy-update" || fail 'updater does not refresh the helpers'
+grep -q 'omarchy_seed_home_defaults' <(sed -n '/^seed_omarchy_config() {/,/^}/p' "$ROOT/container/install.sh") || fail 'installer does not seed the home defaults'
+grep -q 'omarchy_seed_home_defaults' "$ROOT/container/bin/fold-omarchy-update" || fail 'updater does not seed the home defaults'
 echo 'omarchy packaged helper regressions passed'
