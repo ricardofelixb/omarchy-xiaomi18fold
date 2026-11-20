@@ -104,7 +104,7 @@ adds to upstream files.
 
 - **Kind:** 1, useful to anyone running Omarchy from git. **Upstream candidate.**
 - **Bug:** Omarchy 4.5's desktop entries use themed icon names (`basecamp`, `google-contacts`, ...); its package installs `applications/icons/*.png` as hicolor icons, a git checkout doesn't, so most launcher apps showed the gear.
-- **Fix:** `omarchy_install_app_icons` copies each icon to `~/.local/share/icons/hicolor/256x256/apps/<safe_icon_name>.png` (Omarchy's naming rule), refreshing changed files only; run by `container/install.sh` and `fold-omarchy-update`.
+- **Fix:** `omarchy_install_app_icons` copies each icon to `~/.local/share/icons/hicolor/256x256/apps/<safe_icon_name>.png` (Omarchy's naming rule), refreshing only icons it installed itself (checksums in `~/.local/state/fold/app-icons`; a user's own icon with the same name is kept); run by `container/install.sh` and `fold-omarchy-update`.
 - **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-app-icons-regressions.sh`.
 - **Drop when:** upstream's installer provides the bundled icons without its package.
 
