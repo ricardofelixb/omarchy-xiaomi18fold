@@ -5,8 +5,8 @@
 # .idle.screensaver. Omarchy reads $HOME/.config whatever XDG_CONFIG_HOME says, and only
 # accepts a file whose "version" is 1 (its own editors add it when missing, so this does too).
 # A symlinked file is written through. A missing, read-only or non-strict-JSON file, anything
-# but one object, or a version other than 1 is left alone with a warning and exit 1.
-# Running it again changes nothing.
+# but one object, a number that cannot be written back as JSON (1e400) or a version other
+# than 1 is left alone with a warning and exit 1. Running it again changes nothing.
 set -euo pipefail
 
 file=$HOME/.config/omarchy/shell.json
@@ -40,11 +40,14 @@ if 'version' in cfg and (isinstance(cfg['version'], bool) or cfg['version'] != 1
 cfg = {'version': 1, **cfg}
 idle = cfg.get('idle')
 cfg['idle'] = {**(idle if isinstance(idle, dict) else {}), 'lock': 0}
+try:
+    text = json.dumps(cfg, indent=2, ensure_ascii=False, allow_nan=False) + '\n'
+except ValueError:
+    refuse('a number such as 1e400 would be rewritten as Infinity, which is not JSON')
 fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + '.', dir=os.path.dirname(path))
 try:
     with os.fdopen(fd, 'w', encoding='utf-8') as out:
-        json.dump(cfg, out, indent=2, ensure_ascii=False)
-        out.write('\n')
+        out.write(text)
     os.chmod(tmp, os.stat(path).st_mode & 0o7777)
     os.replace(tmp, path)
 except BaseException:
