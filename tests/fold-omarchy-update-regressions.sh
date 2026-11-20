@@ -134,6 +134,11 @@ overlay_rc() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_K
 printf '[bar]\nposition = "top"\n' > "$toml"
 for helper in fcitx5-autostart host-run portal-autostart audio-autostart lock-ime-reset-autostart; do : > "$ov/container/bin/$helper"; done
 overlay_rc || fail 'the overlay fails even when shell.toml is writable'
+# The overlay must put the audio helper and the playback-only WirePlumber rule where the container reads them.
+[[ -x $ovhome/.local/bin/audio-autostart ]] || fail 'the overlay did not install audio-autostart'
+wpd=wireplumber/wireplumber.conf.d; mkdir -p "$ov/config/$wpd"; echo 'rule' > "$ov/config/$wpd/51-test.conf"
+overlay_rc || fail 'the overlay failed with a WirePlumber rule to seed'
+[[ $(cat "$ovhome/.config/$wpd/51-test.conf") == rule ]] || fail 'the overlay did not seed the WirePlumber rule'
 rm -f "$ov/container/bin/lock-ime-reset-autostart"; rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"
 if overlay_rc; then fail 'a failed helper install was hidden by a successful radius seed'; fi
 : > "$ov/container/bin/lock-ime-reset-autostart"

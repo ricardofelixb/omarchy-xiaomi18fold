@@ -609,7 +609,7 @@ fold_home_case upgrade
 pass 'fresh and root-owned-folder upgrade homes get the fold user units enabled, every folder owned by the target user'
 
 # Debian's user PulseAudio must be masked (the container's PipeWire owns the card), the sound devices'
-# group must reach the container user, and a user's own unit file is kept.
+# group must reach the container user, and a user's own unit file is backed up, then masked.
 ph=$work/pulse-mask; mkdir -p "$ph/home/.config/systemd/user"
 {
   sed -n '/^note()/p;/^warn()/p;/^run()/,/^}/p' "$ROOT/host/install.sh"
@@ -624,9 +624,10 @@ done
 bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'a second mask_host_pulseaudio run failed'
 rm "$ph/home/.config/systemd/user/pulseaudio.socket"; printf '[Socket]\n' > "$ph/home/.config/systemd/user/pulseaudio.socket"
 bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a user-made unit'
-[[ -f $ph/home/.config/systemd/user/pulseaudio.socket && ! -L $ph/home/.config/systemd/user/pulseaudio.socket ]] || fail 'a user-made pulseaudio.socket was replaced'
+[[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.socket") == /dev/null ]] || fail 'a user-made pulseaudio.socket was left active'
+cat "$ph"/home/.config/systemd/user/pulseaudio.socket.fold-bak.* | grep -qx '\[Socket\]' || fail 'the user-made pulseaudio.socket was not backed up'
 assert_has "$ROOT/host/install.sh" '/dev/input/event* /dev/snd/*; do'
-pass "host PulseAudio is masked (rerun-safe, user units kept) and /dev/snd's group reaches the container user"
+pass "host PulseAudio is masked (rerun-safe, user units backed up then masked) and /dev/snd's group reaches the container user"
 
 # The Terminal app never answers capture requests: WirePlumber must neither probe with ACP nor create the
 # capture node, or it stalls on the timeout and Omarchy's OSD waits on a source that cannot work.

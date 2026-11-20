@@ -646,7 +646,11 @@ mask_host_pulseaudio() {
   local dir=$T_HOME/.config/systemd/user u
   ensure_user_dir "$T_HOME/.config"; ensure_user_dir "$T_HOME/.config/systemd"; ensure_user_dir "$dir"
   for u in pulseaudio.service pulseaudio.socket; do
-    if [[ -e $dir/$u && ! -L $dir/$u ]]; then note "kept your own $dir/$u"; continue; fi
+    # A real unit file would still start PulseAudio: keep a copy beside it, then mask.
+    if [[ -e $dir/$u && ! -L $dir/$u ]]; then
+      run runuser -u "$TARGET_USER" -- mv -- "$dir/$u" "$dir/$u.fold-bak.$(date +%s)" || { warn "could not back up $dir/$u, left it unmasked"; continue; }
+      note "backed up your own $dir/$u as $u.fold-bak.*, then masked it"
+    fi
     run runuser -u "$TARGET_USER" -- ln -sfn /dev/null "$dir/$u" || warn "could not mask $u"
   done
   if [[ -S /run/user/$T_UID/bus ]]; then
