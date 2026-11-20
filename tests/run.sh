@@ -62,6 +62,9 @@ for path in Path(sys.argv[1]).rglob('*.qml'):
         assert 'import qs.Commons as OmarchyColors' in text, path
 print('PASS qualified shell color consumers')
 PYCOLORS
+  # A connected onPressAndHold stops a held mouse press from clicking; the app grid arms a touch drag with a Timer instead.
+  ! grep -q 'onPressAndHold' "$work/shell/plugins/dock/AppGrid.qml"
+  grep -q 'id: holdTimer' "$work/shell/plugins/dock/AppGrid.qml"
   # Every commit the series makes must be listed in KNOWN-TREES, which the updater uses to recognise fork commits.
   git clone --quiet --shared "$CACHE/upstream" "$work/am"
   for p in "${patches[@]}"; do
