@@ -36,21 +36,10 @@ bash "$ROOT/lib/home-layout.sh"
 export XDG_CONFIG_HOME="$work/custom-config"
 bash "$ROOT/lib/home-layout.sh"
 [[ -f $XDG_CONFIG_HOME/user-dirs.dirs ]]
-# ~/go is removed only when it holds nothing but a real module cache directory.
-go_home() { rm -rf "$work/go-home"; mkdir -p "$work/go-home"; }
-run_go() { HOME=$work/go-home XDG_CONFIG_HOME=$work/go-home/.config bash "$ROOT/lib/home-layout.sh" 2>/dev/null; }
-go_home; mkdir -p "$work/go-home/go/pkg/mod/cache/x"; chmod -R a-w "$work/go-home/go/pkg/mod"
-run_go; [[ ! -e $work/go-home/go ]] || { echo 'FAIL: pure module cache ~/go not removed'; exit 1; }
-go_home; mkdir -p "$work/go-home/go/pkg"; echo keep > "$work/go-home/go/pkg/mod"
-run_go; [[ $(cat "$work/go-home/go/pkg/mod") == keep ]] || { echo 'FAIL: file at ~/go/pkg/mod deleted'; exit 1; }
-go_home; mkdir -p "$work/go-home/go/pkg/mod" "$work/go-home/go/bin"
-run_go; [[ -d $work/go-home/go/bin ]] || { echo 'FAIL: ~/go with bin deleted'; exit 1; }
-go_home; mkdir -p "$work/go-home/go/pkg/mod" "$work/go-home/go/pkg/other"
-run_go; [[ -d $work/go-home/go/pkg/other ]] || { echo 'FAIL: ~/go/pkg with other entries deleted'; exit 1; }
-go_home; mkdir -p "$work/go-home/go/pkg" "$work/go-target/f"; ln -s "$work/go-target" "$work/go-home/go/pkg/mod"
-run_go; [[ -d $work/go-target/f && -L $work/go-home/go/pkg/mod ]] || { echo 'FAIL: symlinked module cache removed'; exit 1; }
-go_home; mkdir -p "$work/go-target2/pkg/mod"; ln -s "$work/go-target2" "$work/go-home/go"
-run_go; [[ -d $work/go-target2/pkg/mod && -L $work/go-home/go ]] || { echo 'FAIL: symlinked ~/go removed'; exit 1; }
+# ~/go is never deleted: it may hold personal files, even under pkg/mod.
+mkdir -p "$work/go-home/go/pkg/mod"; echo keep > "$work/go-home/go/pkg/mod/my-notes.txt"
+HOME=$work/go-home XDG_CONFIG_HOME=$work/go-home/.config bash "$ROOT/lib/home-layout.sh" 2>/dev/null
+[[ $(cat "$work/go-home/go/pkg/mod/my-notes.txt") == keep ]] || { echo 'FAIL: ~/go content deleted'; exit 1; }
 for package in uwsm hyprland-guiutils ttf-jetbrains-mono-nerd tree-sitter-cli; do
   grep -Fxq "$package" "$ROOT/packages/repo-core.txt"
 done
