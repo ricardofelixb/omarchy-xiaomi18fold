@@ -142,6 +142,12 @@ overlay_rc || fail 'the overlay failed with the old audio files present'
 [[ ! -e $ovhome/.local/bin/audio-autostart && ! -e $ovhome/.config/$wpd/51-fold-playback-only.conf ]] || fail 'the old audio files were not removed'
 [[ -e $ovhome/.config/$wpd/52-mine.conf && -e $ovhome/.local/bin/audio-mine ]] || fail 'the audio cleanup removed a file that is not one of the two'
 overlay_rc || fail 'the overlay failed when the old audio files were already gone'
+# A rule that cannot be removed (read-only folder) is a failed overlay, not a silent success.
+: > "$ovhome/.config/$wpd/51-fold-playback-only.conf"; chmod 555 "$ovhome/.config/$wpd"
+if overlay_rc; then chmod 755 "$ovhome/.config/$wpd"; fail 'a failed removal of the old WirePlumber rule was reported as success'; fi
+chmod 755 "$ovhome/.config/$wpd"
+overlay_rc || fail 'the overlay failed once the WirePlumber folder was writable again'
+[[ ! -e $ovhome/.config/$wpd/51-fold-playback-only.conf ]] || fail 'the old WirePlumber rule was not removed on the retry'
 rm -f "$ov/container/bin/lock-ime-reset-autostart"; rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"
 if overlay_rc; then fail 'a failed helper install was hidden by a successful radius seed'; fi
 : > "$ov/container/bin/lock-ime-reset-autostart"
