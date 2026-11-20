@@ -115,10 +115,6 @@ configure_build_directories() {
   mkdir -p "$HOME/.config/pacman" "$HOME/.cache/makepkg" "$HOME/.cache/tmp"
   local file="$HOME/.config/pacman/makepkg.conf"
   touch "$file"
-  # Earlier installs let AUR Go builds cache modules in ~/go; drop it when that is all it holds.
-  if [[ $(ls -A "$HOME/go" 2>/dev/null) == pkg && $(ls -A "$HOME/go/pkg") == mod ]]; then
-    chmod -R u+w "$HOME/go" && rm -rf "$HOME/go"
-  fi
   if ! grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
     {
       printf '\n# BEGIN omarchy-alarm build\n'

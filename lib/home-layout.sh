@@ -13,6 +13,14 @@ for name in Work Desktop Documents Downloads Music Pictures Projects Public Temp
   fi
 done
 
+# Earlier installs let AUR Go builds cache modules in ~/go. Drop it only when it
+# holds nothing but a real (non-link) module cache directory.
+go_dir=$HOME/go
+if [[ -d $go_dir && ! -L $go_dir && -d $go_dir/pkg && ! -L $go_dir/pkg && -d $go_dir/pkg/mod && ! -L $go_dir/pkg/mod \
+  && $(ls -A "$go_dir") == pkg && $(ls -A "$go_dir/pkg") == mod ]]; then
+  chmod -R u+w "$go_dir" && rm -rf "$go_dir"
+fi
+
 # Equivalent to the initial xdg-user-dirs-update defaults, but unlike running
 # that program on every install, never rewrite existing user preferences.
 config_home=${XDG_CONFIG_HOME:-"$HOME/.config"}
