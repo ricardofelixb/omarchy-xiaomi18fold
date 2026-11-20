@@ -31,7 +31,7 @@ printf '#!/bin/bash\necho locale\n' > "$OP/bin/omarchy-locale-generate"
 echo '%wheel ALL=(root) NOPASSWD: /usr/bin/omarchy-theme-set-browser-policy [0-9a-f]' > "$OP/etc/sudoers.d/omarchy-theme-browser"
 echo '%wheel ALL=(root) NOPASSWD: /usr/bin/omarchy-locale-generate en' > "$OP/etc/sudoers.d/omarchy-locale-generate"
 
-run() { (PATH="$bin:$PATH" OMARCHY_PATH=$OP OMV_PACKAGED_ROOT=$dest; source "$ROOT/lib/omarchy-move.sh"; omarchy_install_packaged_helpers 2>&1); }
+run() { (export PATH="$bin:$PATH" OMARCHY_PATH=$OP OMV_PACKAGED_ROOT=$dest; source "$ROOT/lib/omarchy-move.sh"; omarchy_install_packaged_helpers 2>&1); }
 
 # 1. Both helpers and both rules land as copies (not links), root-owned and with the package's modes.
 out=$(run) || fail "install failed: $out"
