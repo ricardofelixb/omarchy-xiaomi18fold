@@ -117,8 +117,10 @@ configure_build_directories() {
   if grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
     # Refresh the managed block so settings added later (GOPATH) reach existing installs.
     # Failing here stops the installer: AUR builds without GOPATH would fill ~/go.
-    if ! awk '/^# BEGIN omarchy-alarm build$/ { begun = 1 } /^# END omarchy-alarm build$/ && begun { ok = 1 } END { exit !ok }' "$file"; then
-      echo "ERROR: $file has a malformed build block (no end marker after the begin marker); fix it by hand and rerun." >&2
+    if ! awk '/^# BEGIN omarchy-alarm build$/ { if (state) bad = 1; state = 1; begins++ }
+              /^# END omarchy-alarm build$/ { if (state != 1) bad = 1; state = 2; ends++ }
+              END { exit bad || begins != 1 || ends != 1 }' "$file"; then
+      echo "ERROR: $file must have exactly one build block (one begin marker, then one end marker); fix it by hand and rerun." >&2
       return 1
     fi
     local target tmp
