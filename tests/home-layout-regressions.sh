@@ -40,6 +40,16 @@ bash "$ROOT/lib/home-layout.sh"
 mkdir -p "$work/go-home/go/pkg/mod"; echo keep > "$work/go-home/go/pkg/mod/my-notes.txt"
 HOME=$work/go-home XDG_CONFIG_HOME=$work/go-home/.config bash "$ROOT/lib/home-layout.sh" 2>/dev/null
 [[ $(cat "$work/go-home/go/pkg/mod/my-notes.txt") == keep ]] || { echo 'FAIL: ~/go content deleted'; exit 1; }
+# Rerunning the installer refreshes an existing managed makepkg block (older ones lack GOPATH).
+upg=$work/upgrade-home; mkdir -p "$upg/.config/pacman"
+printf 'MAKEFLAGS=-j2\n\n# BEGIN omarchy-alarm build\nBUILDDIR=$HOME/.cache/makepkg\nexport TMPDIR=$HOME/.cache/tmp\n# END omarchy-alarm build\nPKGEXT=.keep\n' > "$upg/.config/pacman/makepkg.conf"
+run_cbd() { HOME=$upg ROOT=$ROOT bash -c "$(sed -n '/^configure_build_directories()/,/^}/p' "$ROOT/container/install.sh"); configure_build_directories"; }
+run_cbd
+conf=$upg/.config/pacman/makepkg.conf
+[[ $(grep -c '^export GOPATH=' "$conf") == 1 ]] || { echo 'FAIL: existing makepkg block not given GOPATH'; exit 1; }
+grep -Fxq 'MAKEFLAGS=-j2' "$conf" && grep -Fxq 'PKGEXT=.keep' "$conf" || { echo 'FAIL: lines outside the managed block lost'; exit 1; }
+before=$(sha256sum "$conf"); run_cbd
+[[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: makepkg block not idempotent'; exit 1; }
 for package in uwsm hyprland-guiutils ttf-jetbrains-mono-nerd tree-sitter-cli; do
   grep -Fxq "$package" "$ROOT/packages/repo-core.txt"
 done
