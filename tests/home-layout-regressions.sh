@@ -60,6 +60,12 @@ before=$(sha256sum "$conf"); mkdir -p "$work/badawk"; printf '#!/bin/sh\nexit 1\
 [[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: failed rewrite changed makepkg.conf'; exit 1; }
 run_cbd
 [[ $(stat -c %a "$conf") == 640 && $(grep -c '^export GOPATH=' "$conf") == 1 && $(ls "$upg/.config/pacman" | wc -l) == 1 ]] || { echo 'FAIL: rewrite changed mode or left temp files'; exit 1; }
+# End marker before the begin marker is malformed: stop and leave makepkg.conf untouched.
+printf 'MAKEFLAGS=-j2\n# END omarchy-alarm build\n# BEGIN omarchy-alarm build\nPKGEXT=.keep\n' > "$conf"
+before=$(sha256sum "$conf"); ! run_cbd 2>/dev/null || { echo 'FAIL: misordered markers must stop the installer'; exit 1; }
+[[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: misordered markers were rewritten'; exit 1; }
+# Every test in tests/run.sh is a separate command.
+! grep -Eq '\.(sh|py)"[[:space:]]*bash ' "$ROOT/tests/run.sh" || { echo 'FAIL: tests/run.sh joins two commands without a separator'; exit 1; }
 # A symlinked makepkg.conf stays a symlink; its target gets the refresh.
 mv "$conf" "$upg/dotfile-makepkg.conf"; ln -s "$upg/dotfile-makepkg.conf" "$conf"
 run_cbd
