@@ -54,7 +54,7 @@ install_bar_corner_radius() {
   return 1
 }
 install_config_overlay() {
-  local file relative
+  local file relative rc=0
   while IFS= read -r -d '' file; do
     relative=${file#"$ROOT/config/"}
     # This file is merged by configure_build_directories, not overwritten.
@@ -67,19 +67,20 @@ install_config_overlay() {
     if [[ $relative == fcitx5/* && ( -e $HOME/.config/$relative || -L $HOME/.config/$relative ) ]]; then continue; fi
     install -Dm644 "$file" "$HOME/.config/$relative"
   done < <(find "$ROOT/config" -type f -print0)
-  install -Dm755 "$ROOT/container/bin/fcitx5-autostart" "$HOME/.local/bin/fcitx5-autostart"
+  install -Dm755 "$ROOT/container/bin/fcitx5-autostart" "$HOME/.local/bin/fcitx5-autostart" || rc=1
   # Xiaomi 18 Fold helpers (display guard, touch flush, dock, OSK toggle, window menu)
   for _fold_bin in fold-display-guard fold-window-menu fold-touch-flush-req fold-dismiss-overlays \
       fold-session-rescue omarchy-osk-toggle fold-dock fold-drawer fold-hyprgrass-build fold-omarchy-update; do
     if [[ -f $ROOT/container/bin/$_fold_bin ]]; then
-      install -Dm755 "$ROOT/container/bin/$_fold_bin" "$HOME/.local/bin/$_fold_bin"
+      install -Dm755 "$ROOT/container/bin/$_fold_bin" "$HOME/.local/bin/$_fold_bin" || rc=1
     fi
   done
-  install -Dm755 "$ROOT/container/bin/host-run" "$HOME/.local/bin/host-run"
-  install -Dm755 "$ROOT/container/bin/portal-autostart" "$HOME/.local/bin/portal-autostart"
-  install -Dm755 "$ROOT/container/bin/lock-ime-reset-autostart" "$HOME/.local/bin/lock-ime-reset-autostart"
-  # Last, so a failure here is the function's status but skips none of the installs above.
-  install_bar_corner_radius
+  install -Dm755 "$ROOT/container/bin/host-run" "$HOME/.local/bin/host-run" || rc=1
+  install -Dm755 "$ROOT/container/bin/portal-autostart" "$HOME/.local/bin/portal-autostart" || rc=1
+  install -Dm755 "$ROOT/container/bin/lock-ime-reset-autostart" "$HOME/.local/bin/lock-ime-reset-autostart" || rc=1
+  # Seed last so a failure skips none of the installs above; any failed install or seed is the status.
+  install_bar_corner_radius || rc=1
+  return "$rc"
 }
 # fold-omarchy-update runs without the fork checkout, so keep a copy of what it needs.
 install_fold_payload() {
