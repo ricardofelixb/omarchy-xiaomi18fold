@@ -50,6 +50,16 @@ conf=$upg/.config/pacman/makepkg.conf
 grep -Fxq 'MAKEFLAGS=-j2' "$conf" && grep -Fxq 'PKGEXT=.keep' "$conf" || { echo 'FAIL: lines outside the managed block lost'; exit 1; }
 before=$(sha256sum "$conf"); run_cbd
 [[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: makepkg block not idempotent'; exit 1; }
+# A block without its end marker, or a failed rewrite, must leave makepkg.conf untouched.
+printf 'MAKEFLAGS=-j2\n# BEGIN omarchy-alarm build\nBUILDDIR=old\nPKGEXT=.keep\n' > "$conf"
+before=$(sha256sum "$conf"); run_cbd 2>/dev/null
+[[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: block without end marker was rewritten'; exit 1; }
+printf '# BEGIN omarchy-alarm build\nBUILDDIR=old\n# END omarchy-alarm build\nPKGEXT=.keep\n' > "$conf"; chmod 640 "$conf"
+before=$(sha256sum "$conf"); mkdir -p "$work/badawk"; printf '#!/bin/sh\nexit 1\n' > "$work/badawk/awk"; chmod +x "$work/badawk/awk"
+PATH=$work/badawk:$PATH run_cbd 2>/dev/null
+[[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: failed rewrite changed makepkg.conf'; exit 1; }
+run_cbd
+[[ $(stat -c %a "$conf") == 640 && $(grep -c '^export GOPATH=' "$conf") == 1 && $(ls "$upg/.config/pacman" | wc -l) == 1 ]] || { echo 'FAIL: rewrite changed mode or left temp files'; exit 1; }
 for package in uwsm hyprland-guiutils ttf-jetbrains-mono-nerd tree-sitter-cli; do
   grep -Fxq "$package" "$ROOT/packages/repo-core.txt"
 done
