@@ -140,25 +140,13 @@ adds to upstream files.
 - **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-packaged-helpers-regressions.sh`.
 - **Drop when:** upstream ships an ARM package set (its `/etc/skel` seeds these).
 
-### Audio runs in the container (PipeWire), not in Debian
+### No audio in Linux: Debian's PulseAudio stays masked
 
 - **Kind:** 1, useful to anyone. **Upstream candidate.**
-- **Bug:** Debian's user PulseAudio crash-looped on the virtio-snd card and held `pulse/native`, while the
-  Arch container had no `/dev/snd` and nothing started its PipeWire, so `pactl`/`wpctl` and Omarchy's
-  volume keys, OSD and mixer had no sound server.
-- **Fix:** the installer masks Debian's `pulseaudio.service`/`.socket`; `arch-hyprland` binds `/dev/snd`
-  (only when it exists) with `DeviceAllow=char-alsa rw`, and the sound devices' group is mapped to the
-  container user like the DRM/input ones; the new `audio-autostart` starts `pipewire`, `wireplumber` and
-  `pipewire-pulse` at login (the container has no systemd to do it). Playback only: the Android Terminal
-  app's virtio-snd times out every capture request (`control message (0x101) timeout`), so a WirePlumber rule
-  skips ACP probing (it opens the capture PCM and stalls), drops the `alsa_input` node and pins the sink to
-  2ch/48k/S16LE (unpinned, it opens the PCM at 64 channels, which the host never answers and wedges virtio-snd).
-- **Where:** `host/install.sh`, `host/bin/arch-hyprland`, `container/bin/audio-autostart`,
-  `lib/config-overlay.sh`, `config/hypr/autostart.lua`, `config/wireplumber/wireplumber.conf.d/51-fold-playback-only.conf`,
-  `tests/installer-regressions.sh`,
-  `tests/session-regressions.sh`.
-- **Drop when:** upstream starts the audio stack in the container and binds the sound card itself; drop the
-  WirePlumber rule when the Terminal app answers capture requests.
+- **Bug:** the Android Terminal app's virtio-snd stops answering playback and capture requests (`control message (0x101/0x102) timeout`, even at a 10 s timeout) and stays stuck until the VM restarts, so no audio stack can work. Debian's user PulseAudio retried the card, never finished starting and crash-looped, burning CPU.
+- **Fix:** the installer masks `pulseaudio.service`/`.socket`; a user's own unit file or link is moved to `<unit>.fold-bak.N` first, never overwriting a backup. The config overlay also removes `~/.local/bin/audio-autostart` and `~/.config/wireplumber/wireplumber.conf.d/51-fold-playback-only.conf`, left by an earlier release that tried PipeWire. Use Android apps for sound.
+- **Where:** `host/install.sh`, `lib/config-overlay.sh`, `tests/installer-regressions.sh`, `tests/fold-omarchy-update-regressions.sh`.
+- **Drop when:** the Terminal app's virtio-snd answers reliably.
 
 ## Quick checks
 

@@ -132,13 +132,16 @@ chmod 644 "$toml"; rm -f "$toml"
 # The overlay's status carries a failed seed (the update reports it), but an existing radius needs no write at all.
 overlay_rc() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay >/dev/null 2>&1); }
 printf '[bar]\nposition = "top"\n' > "$toml"
-for helper in fcitx5-autostart host-run portal-autostart audio-autostart lock-ime-reset-autostart; do : > "$ov/container/bin/$helper"; done
+for helper in fcitx5-autostart host-run portal-autostart lock-ime-reset-autostart; do : > "$ov/container/bin/$helper"; done
 overlay_rc || fail 'the overlay fails even when shell.toml is writable'
-# The overlay must put the audio helper and the playback-only WirePlumber rule where the container reads them.
-[[ -x $ovhome/.local/bin/audio-autostart ]] || fail 'the overlay did not install audio-autostart'
-wpd=wireplumber/wireplumber.conf.d; mkdir -p "$ov/config/$wpd"; echo 'rule' > "$ov/config/$wpd/51-test.conf"
-overlay_rc || fail 'the overlay failed with a WirePlumber rule to seed'
-[[ $(cat "$ovhome/.config/$wpd/51-test.conf") == rule ]] || fail 'the overlay did not seed the WirePlumber rule'
+# A phone that got the dropped audio pieces loses exactly those two files and nothing next to them.
+wpd=wireplumber/wireplumber.conf.d; mkdir -p "$ovhome/.config/$wpd" "$ovhome/.local/bin"
+: > "$ovhome/.local/bin/audio-autostart"; : > "$ovhome/.config/$wpd/51-fold-playback-only.conf"
+: > "$ovhome/.config/$wpd/52-mine.conf"; : > "$ovhome/.local/bin/audio-mine"
+overlay_rc || fail 'the overlay failed with the old audio files present'
+[[ ! -e $ovhome/.local/bin/audio-autostart && ! -e $ovhome/.config/$wpd/51-fold-playback-only.conf ]] || fail 'the old audio files were not removed'
+[[ -e $ovhome/.config/$wpd/52-mine.conf && -e $ovhome/.local/bin/audio-mine ]] || fail 'the audio cleanup removed a file that is not one of the two'
+overlay_rc || fail 'the overlay failed when the old audio files were already gone'
 rm -f "$ov/container/bin/lock-ime-reset-autostart"; rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"
 if overlay_rc; then fail 'a failed helper install was hidden by a successful radius seed'; fi
 : > "$ov/container/bin/lock-ime-reset-autostart"

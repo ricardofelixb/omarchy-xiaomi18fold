@@ -93,7 +93,7 @@ Debian 虚拟机里装了 Tailscale 时，桌面（Arch 容器）也能用：容
 
 ### 声音
 
-扬声器可用，音量键、OSD 和混音器走容器里的 PipeWire。麦克风暂不可用：Android 终端应用的 virtio-snd 不响应录音请求，虚拟机里无法修复。
+Linux 里没有声音：Android 终端应用的 virtio-snd 会停止响应播放请求，并一直卡到虚拟机重启。需要声音时请用 Android 应用。安装器会屏蔽 Debian 的 PulseAudio（它只会反复崩溃并占用 CPU）。
 
 ### 剪贴板
 
@@ -147,5 +147,5 @@ tmux session: `omarchy-fold-install` (does not collide with Pad’s `omarchy-ins
 - OSK (wvkbd) off by default; prefer Android IME.
 - Host services: touch range sync, touch unstick, clipboard bridge.
 - Update System (menu or `omarchy-update`) works: it moves Omarchy to the latest release, upgrades Arch Linux ARM and AUR packages, and re-applies the fold config. It skips Omarchy's keyring refresh, snapshot, boot/kernel checks, mise update, reboot prompt and the boot/kernel migrations (`container/update-skip-migrations.txt`). If a new release conflicts with the fold patches, Omarchy stays as it is and only packages update. Needs github.com (no mirror).
-- Sound: the speaker works with Omarchy's volume keys, OSD and mixer (PipeWire runs in the container). The microphone does not: the Android Terminal app's virtio-snd never answers capture requests, so nothing in the guest can fix it.
+- No audio in Linux: the Android Terminal app's virtio-snd stops answering playback requests and stays stuck until the VM restarts, so use Android apps for sound. The installer masks Debian's PulseAudio, which only crash-loops on the card.
 - Sharp desktop: Terminal app → Settings → Display resolution → **Full**; pick the scale with Omarchy's display scale setting. Costs more CPU; Half is cheaper but the app upscales it, so it looks soft.

@@ -367,7 +367,7 @@ if machinectl show "$MACHINE" >/dev/null 2>&1; then
 fi
 
 # Host device groups the container user needs by GID: the seatd socket group, and the
-# groups owning /dev/dri/card* and /dev/dri/renderD*, and the sound devices. The container has its own group
+# groups owning /dev/dri/card* and /dev/dri/renderD*. The container has its own group
 # table, so each host GID is matched to the container group with that GID, or a new
 # "host<name>" group is created for it.
 host_groups=()
@@ -376,7 +376,7 @@ for g in "$seat_group" video render input; do
   [[ -n $gid ]] && host_groups+=("$g:$gid")
 done
 # Device ownership is authoritative, including udmabuf (often host group kvm).
-for node in /run/seatd.sock /dev/udmabuf /dev/dri/card* /dev/dri/renderD* /dev/input/event* /dev/snd/*; do
+for node in /run/seatd.sock /dev/udmabuf /dev/dri/card* /dev/dri/renderD* /dev/input/event*; do
   [[ -e $node ]] || continue
   gid=$(stat -c %g "$node")
   host_groups+=("device$gid:$gid")
@@ -640,8 +640,8 @@ fi
 log "7b/7 fold host helpers (touch sync, clipboard, unstick)"
 install_fold_host_helpers
 
-# The container's PipeWire owns the sound card, so Debian's user PulseAudio must not start:
-# it would hold the card (and /run/user/UID/pulse/native), then crash-loop on it.
+# No audio in Linux: the Terminal app's virtio-snd stops answering and stays stuck until the VM restarts.
+# Debian's user PulseAudio only crash-loops on the card and burns CPU, so keep it off.
 mask_host_pulseaudio() {
   local dir=$T_HOME/.config/systemd/user u n
   ensure_user_dir "$T_HOME/.config"; ensure_user_dir "$T_HOME/.config/systemd"; ensure_user_dir "$dir"
@@ -663,7 +663,7 @@ mask_host_pulseaudio() {
   fi
 }
 
-log "7c/7 host PulseAudio off (the container's PipeWire plays and records)"
+log "7c/7 host PulseAudio off (it only crash-loops on the sound card)"
 mask_host_pulseaudio
 
 log "host side done"

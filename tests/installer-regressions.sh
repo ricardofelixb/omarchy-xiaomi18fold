@@ -608,8 +608,8 @@ fold_home_case fresh
 fold_home_case upgrade
 pass 'fresh and root-owned-folder upgrade homes get the fold user units enabled, every folder owned by the target user'
 
-# Debian's user PulseAudio must be masked (the container's PipeWire owns the card), the sound devices'
-# group must reach the container user, and a user's own unit file is backed up, then masked.
+# Debian's user PulseAudio must be masked (it only crash-loops on the sound card), and a user's own
+# unit file or link is backed up, then masked.
 ph=$work/pulse-mask; mkdir -p "$ph/home/.config/systemd/user"
 {
   sed -n '/^note()/p;/^warn()/p;/^run()/,/^}/p' "$ROOT/host/install.sh"
@@ -637,23 +637,7 @@ bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a l
 [[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.service") == /dev/null ]] || fail 'a linked pulseaudio.service was left active'
 [[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.service.fold-bak.1") == /opt/own/pulseaudio.service ]] || fail 'the linked pulseaudio.service target was lost'
 [[ ! -e $ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.3 ]] || fail 'an existing mask was backed up'
-assert_has "$ROOT/host/install.sh" '/dev/input/event* /dev/snd/*; do'
-pass "host PulseAudio is masked (rerun-safe, user units backed up then masked) and /dev/snd's group reaches the container user"
-
-# The Terminal app never answers capture requests: WirePlumber must neither probe with ACP nor create the
-# capture node, or it stalls on the timeout and Omarchy's OSD waits on a source that cannot work.
-wp=$ROOT/config/wireplumber/wireplumber.conf.d
-wp=$wp/51-fold-playback-only.conf
-assert_has "$wp" 'api.alsa.use-acp = false'
-assert_has "$wp" 'node.name = "~alsa_input.*"'
-assert_has "$wp" 'node.disabled = true'
-# The playback node must not open the PCM at its 64-channel maximum: that request wedges virtio-snd.
-assert_has "$wp" 'node.name = "~alsa_output.*"'
-assert_has "$wp" 'audio.channels = 2'
-assert_has "$wp" 'audio.position = [ FL, FR ]'
-assert_has "$wp" 'audio.rate = 48000'
-assert_has "$wp" 'audio.format = "S16LE"'
-pass 'WirePlumber is set to playback only (no ACP probe, no alsa_input node, 2ch/48k/S16 output)'
+pass 'host PulseAudio is masked (rerun-safe, user units backed up then masked)'
 
 # The ownership helper must never follow a link the user planted: ~/.config -> a folder elsewhere
 # (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal

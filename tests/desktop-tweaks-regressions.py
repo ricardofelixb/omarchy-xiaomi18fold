@@ -5,11 +5,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / 'container/install.sh').read_text() + (ROOT / 'lib/config-overlay.sh').read_text()
+source = (ROOT / 'container/install.sh').read_text()
 def function(name):
     start = source.index(name + '() {')
     return source[start:source.index('\n}\n', start) + 3]
-script = '\n'.join(function(n) for n in ('seed_omarchy_config', 'install_bar_corner_radius', 'install_input_defaults', 'install_config_overlay', 'configure_input_and_fonts', 'report_optional_results'))
+script = '\n'.join(function(n) for n in ('seed_omarchy_config', 'install_input_defaults', 'install_config_overlay', 'configure_input_and_fonts', 'report_optional_results'))
 script = script.replace('/usr/share/rime-data', '$TEST_RIME_DATA')
 script += '''
 fc-cache() { :; }
@@ -94,7 +94,7 @@ with tempfile.TemporaryDirectory() as temporary:
     assert 'FAILED (nonfatal) Rime schema deployment' in failed.stderr
     assert 'Shift_L' in (home / '.config/fcitx5/config').read_text()
     assert 'DefaultIM=rime' in (home / '.config/fcitx5/profile').read_text()
-    for name in ('portal-autostart', 'audio-autostart', 'lock-ime-reset-autostart', 'fcitx5-autostart'):
+    for name in ('portal-autostart', 'lock-ime-reset-autostart', 'fcitx5-autostart'):
         assert os.access(home / '.local/bin' / name, os.X_OK)
     protected = [home / '.config/fcitx5/config', home / '.config/fcitx5/profile', rime_file, input_file]
     for path in protected: path.write_text('user preferences\n')
