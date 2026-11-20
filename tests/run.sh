@@ -63,8 +63,10 @@ for path in Path(sys.argv[1]).rglob('*.qml'):
 print('PASS qualified shell color consumers')
 PYCOLORS
   # A connected onPressAndHold stops a held mouse press from clicking; the app grid arms a touch drag with a Timer instead.
-  ! grep -q 'onPressAndHold' "$work/shell/plugins/dock/AppGrid.qml"
-  grep -q 'id: holdTimer' "$work/shell/plugins/dock/AppGrid.qml"
+  if grep -Eq '^[[:space:]]*onPressAndHold[[:space:]]*:' "$work/shell/plugins/dock/AppGrid.qml"; then
+    echo "AppGrid.qml connects onPressAndHold: a held mouse press would stop clicking" >&2; return 1
+  fi
+  grep -q 'id: holdTimer' "$work/shell/plugins/dock/AppGrid.qml" || { echo "AppGrid.qml lost its holdTimer" >&2; return 1; }
   # Every commit the series makes must be listed in KNOWN-TREES, which the updater uses to recognise fork commits.
   git clone --quiet --shared "$CACHE/upstream" "$work/am"
   for p in "${patches[@]}"; do
