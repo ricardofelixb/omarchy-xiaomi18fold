@@ -608,6 +608,26 @@ fold_home_case fresh
 fold_home_case upgrade
 pass 'fresh and root-owned-folder upgrade homes get the fold user units enabled, every folder owned by the target user'
 
+# Debian's user PulseAudio must be masked (the container's PipeWire owns the card), the sound devices'
+# group must reach the container user, and a user's own unit file is kept.
+ph=$work/pulse-mask; mkdir -p "$ph/home/.config/systemd/user"
+{
+  sed -n '/^note()/p;/^warn()/p;/^run()/,/^}/p' "$ROOT/host/install.sh"
+  echo "DRY_RUN=0; TARGET_USER=tester; T_UID=999999; T_HOME=$ph/home; runuser() { shift 3; \"\$@\"; }; ensure_user_dir() { mkdir -p \"\$1\"; }"
+  sed -n '/^mask_host_pulseaudio()/,/^}/p' "$ROOT/host/install.sh"
+  echo 'set -e; mask_host_pulseaudio'
+} > "$ph/run.sh"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail "mask_host_pulseaudio failed: $(tail -n 5 "$ph/log")"
+for u in pulseaudio.service pulseaudio.socket; do
+  [[ $(readlink "$ph/home/.config/systemd/user/$u") == /dev/null ]] || fail "$u is not masked"
+done
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'a second mask_host_pulseaudio run failed'
+rm "$ph/home/.config/systemd/user/pulseaudio.socket"; printf '[Socket]\n' > "$ph/home/.config/systemd/user/pulseaudio.socket"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a user-made unit'
+[[ -f $ph/home/.config/systemd/user/pulseaudio.socket && ! -L $ph/home/.config/systemd/user/pulseaudio.socket ]] || fail 'a user-made pulseaudio.socket was replaced'
+assert_has "$ROOT/host/install.sh" '/dev/input/event* /dev/snd/*; do'
+pass "host PulseAudio is masked (rerun-safe, user units kept) and /dev/snd's group reaches the container user"
+
 # The ownership helper must never follow a link the user planted: ~/.config -> a folder elsewhere
 # (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal
 # user, "stale" is our own uid and fchown is recorded instead of performed.

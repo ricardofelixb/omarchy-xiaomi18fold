@@ -132,7 +132,7 @@ chmod 644 "$toml"; rm -f "$toml"
 # The overlay's status carries a failed seed (the update reports it), but an existing radius needs no write at all.
 overlay_rc() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay >/dev/null 2>&1); }
 printf '[bar]\nposition = "top"\n' > "$toml"
-for helper in fcitx5-autostart host-run portal-autostart lock-ime-reset-autostart; do : > "$ov/container/bin/$helper"; done
+for helper in fcitx5-autostart host-run portal-autostart audio-autostart lock-ime-reset-autostart; do : > "$ov/container/bin/$helper"; done
 overlay_rc || fail 'the overlay fails even when shell.toml is writable'
 rm -f "$ov/container/bin/lock-ime-reset-autostart"; rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"
 if overlay_rc; then fail 'a failed helper install was hidden by a successful radius seed'; fi

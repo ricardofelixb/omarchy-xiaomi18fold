@@ -94,7 +94,7 @@ with tempfile.TemporaryDirectory() as temporary:
     assert 'FAILED (nonfatal) Rime schema deployment' in failed.stderr
     assert 'Shift_L' in (home / '.config/fcitx5/config').read_text()
     assert 'DefaultIM=rime' in (home / '.config/fcitx5/profile').read_text()
-    for name in ('portal-autostart', 'lock-ime-reset-autostart', 'fcitx5-autostart'):
+    for name in ('portal-autostart', 'audio-autostart', 'lock-ime-reset-autostart', 'fcitx5-autostart'):
         assert os.access(home / '.local/bin' / name, os.X_OK)
     protected = [home / '.config/fcitx5/config', home / '.config/fcitx5/profile', rime_file, input_file]
     for path in protected: path.write_text('user preferences\n')

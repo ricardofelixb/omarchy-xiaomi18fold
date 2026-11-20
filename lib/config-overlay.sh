@@ -77,6 +77,7 @@ install_config_overlay() {
   done
   install -Dm755 "$ROOT/container/bin/host-run" "$HOME/.local/bin/host-run" || rc=1
   install -Dm755 "$ROOT/container/bin/portal-autostart" "$HOME/.local/bin/portal-autostart" || rc=1
+  install -Dm755 "$ROOT/container/bin/audio-autostart" "$HOME/.local/bin/audio-autostart" || rc=1
   install -Dm755 "$ROOT/container/bin/lock-ime-reset-autostart" "$HOME/.local/bin/lock-ime-reset-autostart" || rc=1
   # Seed last so a failure skips none of the installs above; any failed install or seed is the status.
   install_bar_corner_radius || rc=1

@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory(prefix='session-regressions-') as tmp:
     live=runtime/'hypr/live'; live.mkdir(parents=True)
     ipc=socket.socket(socket.AF_UNIX); ipc.bind(str(live/'.socket.sock'))
     (live/'hyprland.lock').write_text('123\nwayland-1\n')
-    for name in ['dri','input','udev']: (w/name).mkdir()
+    for name in ['dri','input','udev','snd']: (w/name).mkdir()
     (w/'udmabuf').touch(); seat=socket.socket(socket.AF_UNIX); seat.bind(str(w/'seatd.sock'))
     env=dict(os.environ,HOME=str(home),PATH=str(mocks)+':'+os.environ['PATH'],TEST_STATE=str(w),XDG_RUNTIME_DIR=str(runtime))
     env.pop('INVOCATION_ID',None); env.pop('OMARCHY_SESSION_INTERNAL',None)
@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='session-regressions-') as tmp:
     for src in (root/'host/bin').iterdir():
         s=src.read_text()
         for key,value in {'@USER@':os.environ.get('USER','tester'),'@UID@':uid,'@ROOTFS@':str(fs),'@HOME@':str(home),'@CHOME@':'/home/tester','@HOME_BIND_DIRS@':'','@VERSION@':(root/'VERSION').read_text().strip()}.items(): s=s.replace(key,value)
-        for key,value in {'/run/user/'+uid:str(runtime),'/sys/class/drm':str(drm),'/dev/dri':str(w/'dri'),'/dev/udmabuf':str(w/'udmabuf'),'/dev/input':str(w/'input'),'/run/udev':str(w/'udev'),'/run/seatd.sock':str(w/'seatd.sock')}.items(): s=s.replace(key,value)
+        for key,value in {'/run/user/'+uid:str(runtime),'/sys/class/drm':str(drm),'/dev/dri':str(w/'dri'),'/dev/udmabuf':str(w/'udmabuf'),'/dev/input':str(w/'input'),'/dev/snd':str(w/'snd'),'/run/udev':str(w/'udev'),'/run/seatd.sock':str(w/'seatd.sock')}.items(): s=s.replace(key,value)
         # Accelerate only harness deadlines, not the production decision logic.
         s=s.replace('$(monotonic_seconds) + 30','$(monotonic_seconds) + '+str(gate_seconds)).replace('$(monotonic_seconds) + 3','$(monotonic_seconds) + 2').replace('$(monotonic_seconds) + 15','$(monotonic_seconds) + '+str(gate_seconds))
         p=bins/src.name;p.write_text(s);p.chmod(0o755)
@@ -214,6 +214,8 @@ fi
     for flag in ['LIBGL_ALWAYS_SOFTWARE','GALLIUM_DRIVER','AQ_NO_MODIFIERS','AQ_NO_ATOMIC','WAYLAND_DISPLAY']:
         assert '--setenv='+flag not in args
     assert 'stage=arch-hyprland software=auto no_modifiers=auto no_atomic=auto mesa=arch' in text
+    # The sound card goes into the container so its PipeWire can open it.
+    assert '--bind='+str(w/'snd')+'\n' in args and '--property=DeviceAllow=char-alsa rw\n' in args,args
     for mode in [('--selftest',),('--direct',),()]:
         reset('delayed-registration', *([] if mode==('--selftest',) else ['normal-exit']))
         rc,out,err,text,logs=run(args=mode)
@@ -323,6 +325,9 @@ fi
         if flag=='early-exit': assert rc==7 and 'stage=launcher-exit' in text
         assert len(logs)==1 and out.strip()==str(next(iter(logs)))
         assert not (w/'machine').exists() and not (w/'weston').exists()
+    # No sound card is not an error: the desktop starts without the bind.
+    (w/'snd').rmdir(); reset(); rc,_,_,text,_=run(); (w/'snd').mkdir()
+    assert rc==0 and 'char-alsa' not in (w/'nspawn-args').read_text(),(rc,text)
     for name in ['udmabuf','dri','input','udev','seatd.sock']:
         path=w/name;path.rename(w/(name+'.saved'))
         reset(); rc,_,_,text,_=run(); assert rc!=0 and 'missing-device' in text,(name,rc,text)

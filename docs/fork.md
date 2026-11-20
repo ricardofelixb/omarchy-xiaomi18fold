@@ -140,6 +140,21 @@ adds to upstream files.
 - **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-packaged-helpers-regressions.sh`.
 - **Drop when:** upstream ships an ARM package set (its `/etc/skel` seeds these).
 
+### Audio runs in the container (PipeWire), not in Debian
+
+- **Kind:** 1, useful to anyone. **Upstream candidate.**
+- **Bug:** Debian's user PulseAudio crash-looped on the virtio-snd card and held `pulse/native`, while the
+  Arch container had no `/dev/snd` and nothing started its PipeWire, so `pactl`/`wpctl` and Omarchy's
+  volume keys, OSD and mixer had no sound server.
+- **Fix:** the installer masks Debian's `pulseaudio.service`/`.socket`; `arch-hyprland` binds `/dev/snd`
+  (only when it exists) with `DeviceAllow=char-alsa rw`, and the sound devices' group is mapped to the
+  container user like the DRM/input ones; the new `audio-autostart` starts `pipewire`, `wireplumber` and
+  `pipewire-pulse` at login (the container has no systemd to do it).
+- **Where:** `host/install.sh`, `host/bin/arch-hyprland`, `container/bin/audio-autostart`,
+  `lib/config-overlay.sh`, `config/hypr/autostart.lua`, `tests/installer-regressions.sh`,
+  `tests/session-regressions.sh`.
+- **Drop when:** upstream starts the audio stack in the container and binds the sound card itself.
+
 ## Quick checks
 
 - `bash tests/run.sh --check patches`

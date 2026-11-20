@@ -85,6 +85,10 @@ parent_mask=""
 if [[ -e /run/user/@UID@/wayland-0 ]]; then
   parent_mask="--bind-ro=/dev/null:/run/user/@UID@/wayland-0"
 fi
+# Sound card (virtio-snd): PipeWire in the container opens it directly, so the container
+# needs /dev/snd. Optional: with no card the desktop still starts, just without audio.
+snd=()
+[[ ! -e /dev/snd ]] || snd=(--bind=/dev/snd --property=DeviceAllow='char-alsa rw')
 # Log choices in every launch mode, including selftest; auto means no override.
 stage arch-hyprland "software=$software no_modifiers=$modifiers no_atomic=$atomic mesa=$mesa_source launch=$launch parent_mask=${parent_mask:+wayland-0}"
 stage nspawn-start
@@ -95,7 +99,7 @@ exec sudo -n SYSTEMD_NSPAWN_LOCK=0 systemd-nspawn -q -D "$rootfs" -M arch-deskto
   -u '@USER@' --chdir='@CHOME@' \
   --bind=/dev/dri --bind=/dev/udmabuf --bind=/dev/input --bind-ro=/run/udev --bind=/run/seatd.sock \
   --bind=/run/user/@UID@ --bind=/tmp \
-  $homebinds $parent_mask \
+  $homebinds $parent_mask "${snd[@]}" \
   --property=DeviceAllow='char-drm rw' --property=DeviceAllow='char-input rw' --property=DeviceAllow='/dev/udmabuf rw' \
   --setenv=HOME='@CHOME@' --setenv=USER='@USER@' --setenv=LOGNAME='@USER@' \
   --setenv=XDG_RUNTIME_DIR=/run/user/@UID@ \
