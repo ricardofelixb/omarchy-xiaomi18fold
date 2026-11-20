@@ -33,4 +33,11 @@ run
 echo changed > "$icons/Basecamp.png"
 run
 [[ $(cat "$dest/basecamp.png") == changed && $(wc -l < "$CACHE_LOG") == 2 ]] || fail 'changed icon not refreshed'
+# A copy that fails (read-only apps dir) must not look like success; the other icons still install.
+echo new > "$icons/HEY.png"; echo old > "$dest/hey.png"
+chmod a-w "$dest"
+if run 2>/dev/null; then chmod u+w "$dest"; fail 'a failed icon copy returned success'; fi
+chmod u+w "$dest"
+[[ $(cat "$dest/hey.png") == old ]] || fail 'failed copy replaced the icon anyway'
+run; [[ $(cat "$dest/hey.png") == new ]] || fail 'icon not installed once the dir is writable again'
 echo 'ok'
