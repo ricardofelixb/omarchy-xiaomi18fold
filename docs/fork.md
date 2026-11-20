@@ -149,11 +149,15 @@ adds to upstream files.
 - **Fix:** the installer masks Debian's `pulseaudio.service`/`.socket`; `arch-hyprland` binds `/dev/snd`
   (only when it exists) with `DeviceAllow=char-alsa rw`, and the sound devices' group is mapped to the
   container user like the DRM/input ones; the new `audio-autostart` starts `pipewire`, `wireplumber` and
-  `pipewire-pulse` at login (the container has no systemd to do it).
+  `pipewire-pulse` at login (the container has no systemd to do it). Playback only: the Android Terminal
+  app's virtio-snd times out every capture request (`control message (0x101) timeout`), so a WirePlumber rule
+  skips ACP probing (it opens the capture PCM and stalls) and drops the `alsa_input` node: one sink, no source.
 - **Where:** `host/install.sh`, `host/bin/arch-hyprland`, `container/bin/audio-autostart`,
-  `lib/config-overlay.sh`, `config/hypr/autostart.lua`, `tests/installer-regressions.sh`,
+  `lib/config-overlay.sh`, `config/hypr/autostart.lua`, `config/wireplumber/wireplumber.conf.d/51-fold-playback-only.conf`,
+  `tests/installer-regressions.sh`,
   `tests/session-regressions.sh`.
-- **Drop when:** upstream starts the audio stack in the container and binds the sound card itself.
+- **Drop when:** upstream starts the audio stack in the container and binds the sound card itself; drop the
+  WirePlumber rule when the Terminal app answers capture requests.
 
 ## Quick checks
 

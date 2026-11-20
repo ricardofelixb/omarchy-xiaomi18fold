@@ -628,6 +628,15 @@ bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a u
 assert_has "$ROOT/host/install.sh" '/dev/input/event* /dev/snd/*; do'
 pass "host PulseAudio is masked (rerun-safe, user units kept) and /dev/snd's group reaches the container user"
 
+# The Terminal app never answers capture requests: WirePlumber must neither probe with ACP nor create the
+# capture node, or it stalls on the timeout and Omarchy's OSD waits on a source that cannot work.
+wp=$ROOT/config/wireplumber/wireplumber.conf.d
+wp=$wp/51-fold-playback-only.conf
+assert_has "$wp" 'api.alsa.use-acp = false'
+assert_has "$wp" 'node.name = "~alsa_input.*"'
+assert_has "$wp" 'node.disabled = true'
+pass 'WirePlumber is set to playback only (no ACP probe, no alsa_input node)'
+
 # The ownership helper must never follow a link the user planted: ~/.config -> a folder elsewhere
 # (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal
 # user, "stale" is our own uid and fchown is recorded instead of performed.
