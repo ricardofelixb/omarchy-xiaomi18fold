@@ -140,6 +140,14 @@ adds to upstream files.
 - **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-packaged-helpers-regressions.sh`.
 - **Drop when:** upstream ships an ARM package set (its `/etc/skel` seeds these).
 
+### No audio in Linux: Debian's PulseAudio stays masked
+
+- **Kind:** 1, useful to anyone. **Upstream candidate.**
+- **Bug:** the Android Terminal app's virtio-snd stops answering playback and capture requests (`control message (0x101/0x102) timeout`, even at a 10 s timeout) and stays stuck until the VM restarts, so no audio stack can work. Debian's user PulseAudio retried the card, never finished starting and crash-looped, burning CPU.
+- **Fix:** the installer masks `pulseaudio.service`/`.socket`; a user's own unit file or link is moved to `<unit>.fold-bak.N` first, never overwriting a backup. The config overlay also removes `~/.local/bin/audio-autostart` and `~/.config/wireplumber/wireplumber.conf.d/51-fold-playback-only.conf`, left by an earlier release that tried PipeWire. Use Android apps for sound.
+- **Where:** `host/install.sh`, `lib/config-overlay.sh`, `tests/installer-regressions.sh`, `tests/fold-omarchy-update-regressions.sh`.
+- **Drop when:** the Terminal app's virtio-snd answers reliably.
+
 ## Quick checks
 
 - `bash tests/run.sh --check patches`

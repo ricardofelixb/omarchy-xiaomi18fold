@@ -134,6 +134,20 @@ overlay_rc() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_K
 printf '[bar]\nposition = "top"\n' > "$toml"
 for helper in fcitx5-autostart host-run portal-autostart lock-ime-reset-autostart; do : > "$ov/container/bin/$helper"; done
 overlay_rc || fail 'the overlay fails even when shell.toml is writable'
+# A phone that got the dropped audio pieces loses exactly those two files and nothing next to them.
+wpd=wireplumber/wireplumber.conf.d; mkdir -p "$ovhome/.config/$wpd" "$ovhome/.local/bin"
+: > "$ovhome/.local/bin/audio-autostart"; : > "$ovhome/.config/$wpd/51-fold-playback-only.conf"
+: > "$ovhome/.config/$wpd/52-mine.conf"; : > "$ovhome/.local/bin/audio-mine"
+overlay_rc || fail 'the overlay failed with the old audio files present'
+[[ ! -e $ovhome/.local/bin/audio-autostart && ! -e $ovhome/.config/$wpd/51-fold-playback-only.conf ]] || fail 'the old audio files were not removed'
+[[ -e $ovhome/.config/$wpd/52-mine.conf && -e $ovhome/.local/bin/audio-mine ]] || fail 'the audio cleanup removed a file that is not one of the two'
+overlay_rc || fail 'the overlay failed when the old audio files were already gone'
+# A rule that cannot be removed (read-only folder) is a failed overlay, not a silent success.
+: > "$ovhome/.config/$wpd/51-fold-playback-only.conf"; chmod 555 "$ovhome/.config/$wpd"
+if overlay_rc; then chmod 755 "$ovhome/.config/$wpd"; fail 'a failed removal of the old WirePlumber rule was reported as success'; fi
+chmod 755 "$ovhome/.config/$wpd"
+overlay_rc || fail 'the overlay failed once the WirePlumber folder was writable again'
+[[ ! -e $ovhome/.config/$wpd/51-fold-playback-only.conf ]] || fail 'the old WirePlumber rule was not removed on the retry'
 rm -f "$ov/container/bin/lock-ime-reset-autostart"; rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"
 if overlay_rc; then fail 'a failed helper install was hidden by a successful radius seed'; fi
 : > "$ov/container/bin/lock-ime-reset-autostart"

@@ -91,6 +91,10 @@ Debian 虚拟机里装了 Tailscale 时，桌面（Arch 容器）也能用：容
 
 画面发糊时：终端应用 → 设置 → 显示分辨率 选「完整」（Full）；缩放比例用 Omarchy 自带的显示缩放设置选择。「一半」（Half）更省电但会被放大变糊，「完整」CPU 占用更高。
 
+### 声音
+
+Linux 里没有声音：Android 终端应用的 virtio-snd 会停止响应播放请求，并一直卡到虚拟机重启。需要声音时请用 Android 应用。安装器会屏蔽 Debian 的 PulseAudio（它只会反复崩溃并占用 CPU）。
+
 ### 剪贴板
 
 - **Android → Omarchy**：在 Android 里复制后切回 Linux Terminal，再在桌面粘贴。
@@ -143,4 +147,5 @@ tmux session: `omarchy-fold-install` (does not collide with Pad’s `omarchy-ins
 - OSK (wvkbd) off by default; prefer Android IME.
 - Host services: touch range sync, touch unstick, clipboard bridge.
 - Update System (menu or `omarchy-update`) works: it moves Omarchy to the latest release, upgrades Arch Linux ARM and AUR packages, and re-applies the fold config. It skips Omarchy's keyring refresh, snapshot, boot/kernel checks, mise update, reboot prompt and the boot/kernel migrations (`container/update-skip-migrations.txt`). If a new release conflicts with the fold patches, Omarchy stays as it is and only packages update. Needs github.com (no mirror).
+- No audio in Linux: the Android Terminal app's virtio-snd stops answering playback requests and stays stuck until the VM restarts, so use Android apps for sound. The installer masks Debian's PulseAudio, which only crash-loops on the card.
 - Sharp desktop: Terminal app → Settings → Display resolution → **Full**; pick the scale with Omarchy's display scale setting. Costs more CPU; Half is cheaper but the app upscales it, so it looks soft.

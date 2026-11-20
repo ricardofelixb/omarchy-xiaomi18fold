@@ -640,6 +640,32 @@ fi
 log "7b/7 fold host helpers (touch sync, clipboard, unstick)"
 install_fold_host_helpers
 
+# No audio in Linux: the Terminal app's virtio-snd stops answering and stays stuck until the VM restarts.
+# Debian's user PulseAudio only crash-loops on the card and burns CPU, so keep it off.
+mask_host_pulseaudio() {
+  local dir=$T_HOME/.config/systemd/user u n
+  ensure_user_dir "$T_HOME/.config"; ensure_user_dir "$T_HOME/.config/systemd"; ensure_user_dir "$dir"
+  for u in pulseaudio.service pulseaudio.socket; do
+    # A unit file or link (systemctl --user link) would still start PulseAudio: keep it beside, then mask.
+    if [[ ( -e $dir/$u || -L $dir/$u ) && $(readlink -- "$dir/$u" || true) != /dev/null ]]; then
+      n=1; while [[ -e $dir/$u.fold-bak.$n || -L $dir/$u.fold-bak.$n ]]; do n=$((n + 1)); done
+      # -n: never replace a backup made meanwhile; the unit must be gone before it is masked.
+      run runuser -u "$TARGET_USER" -- mv -n -- "$dir/$u" "$dir/$u.fold-bak.$n" || true
+      if [[ -e $dir/$u || -L $dir/$u ]]; then warn "could not back up $dir/$u, left it unmasked"; continue; fi
+      note "backed up your own $dir/$u as $u.fold-bak.$n, then masked it"
+    fi
+    run runuser -u "$TARGET_USER" -- ln -sfn /dev/null "$dir/$u" || warn "could not mask $u"
+  done
+  if [[ -S /run/user/$T_UID/bus ]]; then
+    run runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$T_UID" systemctl --user daemon-reload || true
+    # --no-block: a PulseAudio stuck on the card takes over a minute to stop.
+    run runuser -u "$TARGET_USER" -- env XDG_RUNTIME_DIR="/run/user/$T_UID" systemctl --user stop --no-block pulseaudio.socket pulseaudio.service || true
+  fi
+}
+
+log "7c/7 host PulseAudio off (it only crash-loops on the sound card)"
+mask_host_pulseaudio
+
 log "host side done"
 note "enter the container:      archbox        (shell in the running desktop: archsh)"
 note "use the Arch desktop:     ~/.local/bin/hypr-switch arch; fully close/reopen Linux Terminal (back: hypr-switch debian)"

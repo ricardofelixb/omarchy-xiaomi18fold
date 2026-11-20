@@ -608,6 +608,37 @@ fold_home_case fresh
 fold_home_case upgrade
 pass 'fresh and root-owned-folder upgrade homes get the fold user units enabled, every folder owned by the target user'
 
+# Debian's user PulseAudio must be masked (it only crash-loops on the sound card), and a user's own
+# unit file or link is backed up, then masked.
+ph=$work/pulse-mask; mkdir -p "$ph/home/.config/systemd/user"
+{
+  sed -n '/^note()/p;/^warn()/p;/^run()/,/^}/p' "$ROOT/host/install.sh"
+  echo "DRY_RUN=0; TARGET_USER=tester; T_UID=999999; T_HOME=$ph/home; runuser() { shift 3; \"\$@\"; }; ensure_user_dir() { mkdir -p \"\$1\"; }"
+  sed -n '/^mask_host_pulseaudio()/,/^}/p' "$ROOT/host/install.sh"
+  echo 'set -e; mask_host_pulseaudio'
+} > "$ph/run.sh"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail "mask_host_pulseaudio failed: $(tail -n 5 "$ph/log")"
+for u in pulseaudio.service pulseaudio.socket; do
+  [[ $(readlink "$ph/home/.config/systemd/user/$u") == /dev/null ]] || fail "$u is not masked"
+done
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'a second mask_host_pulseaudio run failed'
+rm "$ph/home/.config/systemd/user/pulseaudio.socket"; printf '[Socket]\n' > "$ph/home/.config/systemd/user/pulseaudio.socket"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a user-made unit'
+[[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.socket") == /dev/null ]] || fail 'a user-made pulseaudio.socket was left active'
+grep -qx '\[Socket\]' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.1" || fail 'the user-made pulseaudio.socket was not backed up'
+# A unit restored and masked again keeps the earlier backup (names never collide).
+rm "$ph/home/.config/systemd/user/pulseaudio.socket"; printf '[Socket]\nListenStream=second\n' > "$ph/home/.config/systemd/user/pulseaudio.socket"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a second user-made unit'
+grep -qx '\[Socket\]' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.1" || fail 'a second backup replaced the first'
+grep -qx 'ListenStream=second' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.2" || fail 'the second user-made unit was not backed up'
+# A linked unit (systemctl --user link, even dangling) is backed up as a link, and an existing mask is left alone.
+rm "$ph/home/.config/systemd/user/pulseaudio.service"; ln -s /opt/own/pulseaudio.service "$ph/home/.config/systemd/user/pulseaudio.service"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a linked unit'
+[[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.service") == /dev/null ]] || fail 'a linked pulseaudio.service was left active'
+[[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.service.fold-bak.1") == /opt/own/pulseaudio.service ]] || fail 'the linked pulseaudio.service target was lost'
+[[ ! -e $ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.3 ]] || fail 'an existing mask was backed up'
+pass 'host PulseAudio is masked (rerun-safe, user units backed up then masked)'
+
 # The ownership helper must never follow a link the user planted: ~/.config -> a folder elsewhere
 # (think /etc) leaves that folder alone, while real folders are still handed back. Run as a normal
 # user, "stale" is our own uid and fchown is recorded instead of performed.
