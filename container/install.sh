@@ -111,10 +111,31 @@ install_repo_packages() {
   fi
 }
 configure_build_directories() {
-  mkdir -p "$HOME/.config/pacman" "$HOME/.cache/makepkg" "$HOME/.cache/tmp"
-  local file="$HOME/.config/pacman/makepkg.conf"
+  local file="${XDG_CONFIG_HOME:-$HOME/.config}/pacman/makepkg.conf" # where makepkg looks
+  mkdir -p "${file%/*}" "$HOME/.cache/makepkg" "$HOME/.cache/tmp"
   touch "$file"
-  if ! grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
+  if grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
+    # Refresh the managed block so settings added later (GOPATH) reach existing installs.
+    # Failing here stops the installer: AUR builds without GOPATH would fill ~/go.
+    if ! awk '/^# BEGIN omarchy-alarm build$/ { if (state) bad = 1; state = 1; begins++ }
+              /^# END omarchy-alarm build$/ { if (state != 1) bad = 1; state = 2; ends++ }
+              END { exit bad || begins != 1 || ends != 1 }' "$file"; then
+      echo "ERROR: $file must have exactly one build block (one begin marker, then one end marker); fix it by hand and rerun." >&2
+      return 1
+    fi
+    local target tmp
+    target=$(readlink -f -- "$file") # write through a symlinked dotfile instead of replacing the link
+    tmp=$(mktemp "$target.XXXXXX") || return 1
+    if awk -v block="$ROOT/config/pacman/makepkg.conf" '
+      /^# BEGIN omarchy-alarm build$/ { print; while ((getline line < block) > 0) print line; skip = 1; next }
+      /^# END omarchy-alarm build$/ { skip = 0 }
+      !skip' "$target" > "$tmp" && chmod --reference="$target" "$tmp" && mv -f "$tmp" "$target"; then
+      return 0
+    fi
+    rm -f "$tmp"
+    echo "ERROR: could not refresh the build block in $file; it is unchanged." >&2
+    return 1
+  else
     {
       printf '\n# BEGIN omarchy-alarm build\n'
       cat "$ROOT/config/pacman/makepkg.conf"

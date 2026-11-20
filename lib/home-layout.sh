@@ -2,7 +2,7 @@
 # Create missing desktop directories without replacing user files or links.
 set -euo pipefail
 
-for name in Work Desktop Documents Downloads Music Pictures Public Templates Videos; do
+for name in Work Desktop Documents Downloads Music Pictures Projects Public Templates Videos; do
   path="$HOME/$name"
   if [[ -e $path || -L $path ]]; then
     if [[ ! -d $path ]]; then
