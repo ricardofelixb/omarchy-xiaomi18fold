@@ -125,6 +125,9 @@ printf '[other]\ncorner-radius = 12\n' > "$toml"; overlay
 printf '[bar]\nposition = "top"\n' > "$ovhome/real.toml"; rm -f "$toml"; ln -s "$ovhome/real.toml" "$toml"; overlay
 [[ -L $toml && $(cat "$ovhome/real.toml") == $'[bar]\ncorner-radius = 142\nposition = "top"' ]] || fail "symlinked shell.toml was replaced or not extended"
 rm -f "$toml"
+printf '[bar]\nposition = "top"\n' > "$toml"; chmod 444 "$toml"; overlay
+[[ $(cat "$toml") == $'[bar]\ncorner-radius = 142\nposition = "top"' && $(stat -c %a "$toml") == 444 ]] || fail "read-only shell.toml not extended with its mode kept: $(cat "$toml")"
+chmod 644 "$toml"; rm -f "$toml"
 
 # 4b. A missing skip list leaves every migration pending instead of running them all.
 : > "$RUN_LOG"; mv "$fold/container/update-skip-migrations.txt" "$work/skip.bak"
