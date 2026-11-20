@@ -73,6 +73,10 @@ omarchy_move_to() {
 # resolv.conf), the timezone rule (no timedated), omarchy-sudo-passwordless/-shell and the boot, kernel,
 # hibernation, hardware, factory-reset, provisioning and systemd-service helpers.
 OMV_PACKAGED_HELPERS=(omarchy-theme-set-browser-policy:omarchy-theme-browser omarchy-locale-generate:omarchy-locale-generate)
+# Trust: the files come from the user-writable checkout and visudo only checks syntax. That is accepted
+# because the user is already passwordless root in this container (the fork's installer sets it up and
+# Omarchy's update flow relies on sudo), so there is no privilege boundary to protect. If that is ever
+# tightened, this needs a trust anchor (pinned sums or a verified fetch of the release).
 # OMV_PACKAGED_ROOT is a test-only prefix for /usr/bin and /etc/sudoers.d. Returns 1 if any pair was not installed.
 omarchy_install_packaged_helpers() {
   local pair helper rule tmp failed=0 root=${OMV_PACKAGED_ROOT:-}
