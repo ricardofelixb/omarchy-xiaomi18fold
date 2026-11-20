@@ -29,14 +29,25 @@ install_input_defaults() {
 # The Fold's inner screen has 142 px corners that clip the bar's end widgets. Seed the radius into the
 # user's shell.toml (patch 0008 reads it) when no corner-radius is set; a value the user wrote stays.
 install_bar_corner_radius() {
-  local toml="$HOME/.config/omarchy/shell.toml"
-  grep -qs '^[[:space:]]*corner-radius[[:space:]]*=' "$toml" && return 0
+  local toml real tmp
+  toml="$HOME/.config/omarchy/shell.toml"
   mkdir -p "${toml%/*}"
-  if grep -qs '^\[bar\][[:space:]]*$' "$toml"; then
-    sed -i '/^\[bar\][[:space:]]*$/a corner-radius = 142' "$toml"
-  else
-    printf '\n[bar]\ncorner-radius = 142\n' >> "$toml"
+  real=$(readlink -f "$toml")   # write through a symlink instead of replacing it
+  [[ -e $real ]] || : > "$real"
+  tmp=$(mktemp)
+  # A [bar] header may carry indentation or a trailing comment. Only a corner-radius inside [bar] counts.
+  if awk '
+    /^[[:space:]]*\[/ { inbar = ($0 ~ /^[[:space:]]*\[bar\][[:space:]]*(#.*)?$/); if (inbar && !hdr) hdr = NR }
+    inbar && /^[[:space:]]*corner-radius[[:space:]]*=/ { found = 1 }
+    { line[NR] = $0 }
+    END {
+      if (found) exit 1
+      for (i = 1; i <= NR; i++) { print line[i]; if (i == hdr) print "corner-radius = 142" }
+      if (!hdr) print "\n[bar]\ncorner-radius = 142"
+    }' "$real" > "$tmp"; then
+    cat "$tmp" > "$real"
   fi
+  rm -f "$tmp"
 }
 install_config_overlay() {
   local file relative

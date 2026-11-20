@@ -118,6 +118,14 @@ printf '[font]\nbase-size = 12\n[bar]\nposition = "top"\n' > "$toml"; overlay
 printf '[bar]\ncorner-radius = 100\n' > "$toml"; overlay; overlay
 [[ $(cat "$toml") == $'[bar]\ncorner-radius = 100' ]] || fail "user corner-radius not kept: $(cat "$toml")"
 
+printf '[bar] # appearance\nposition = "top"\n' > "$toml"; overlay
+[[ $(cat "$toml") == $'[bar] # appearance\ncorner-radius = 142\nposition = "top"' ]] || fail "commented [bar] header not extended: $(cat "$toml")"
+printf '[other]\ncorner-radius = 12\n' > "$toml"; overlay
+[[ $(cat "$toml") == $'[other]\ncorner-radius = 12\n\n[bar]\ncorner-radius = 142' ]] || fail "radius in another section blocked the seed: $(cat "$toml")"
+printf '[bar]\nposition = "top"\n' > "$ovhome/real.toml"; rm -f "$toml"; ln -s "$ovhome/real.toml" "$toml"; overlay
+[[ -L $toml && $(cat "$ovhome/real.toml") == $'[bar]\ncorner-radius = 142\nposition = "top"' ]] || fail "symlinked shell.toml was replaced or not extended"
+rm -f "$toml"
+
 # 4b. A missing skip list leaves every migration pending instead of running them all.
 : > "$RUN_LOG"; mv "$fold/container/update-skip-migrations.txt" "$work/skip.bak"
 out=$(REMOTE=$work/nowhere run) || true
