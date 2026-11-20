@@ -1,15 +1,16 @@
-From 24be96da9f3d1119e0746a94e2ec65ab4c598fe9 Mon Sep 17 00:00:00 2001
+From e663ad6611406c4206ba57c662fb617de59c73b0 Mon Sep 17 00:00:00 2001
 From: omarchy-alarm-nspawn <noreply@example.com>
 Date: Fri, 20 Nov 2026 00:48:40 +0000
 Subject: [PATCH] Keep the bar's side widgets clear of rounded screen corners
 
 [bar] corner-radius (physical px) pushes the first and last bar widgets in to where the corner circle meets the bar's mid-height, at any scale.
 ---
- docs/omarchy-shell.md         |  2 ++
- shell/Commons/Style.qml       |  9 ++++++++-
- shell/plugins/bar/Bar.qml     | 12 +++++++++---
- shell/plugins/bar/BarModel.js | 13 +++++++++++++
- 4 files changed, 32 insertions(+), 4 deletions(-)
+ docs/omarchy-shell.md          |  2 ++
+ shell/Commons/Style.qml        |  9 ++++++++-
+ shell/plugins/bar/Bar.qml      | 12 +++++++++---
+ shell/plugins/bar/BarModel.js  | 13 +++++++++++++
+ test/shell.d/bar-notch-test.sh | 10 ++++++++++
+ 5 files changed, 42 insertions(+), 4 deletions(-)
 
 diff --git a/docs/omarchy-shell.md b/docs/omarchy-shell.md
 index 98559d0..1e93e74 100644
@@ -133,3 +134,22 @@ index 8d3c9d6..784f20b 100644
      cutoutPending: cutoutPending,
      cutoutTop: cutoutTop,
      isDrawnSlot: isDrawnSlot,
+diff --git a/test/shell.d/bar-notch-test.sh b/test/shell.d/bar-notch-test.sh
+index bcedeb0..60d632b 100644
+--- a/test/shell.d/bar-notch-test.sh
++++ b/test/shell.d/bar-notch-test.sh
+@@ -139,4 +139,14 @@ const stateBarSizeFor = new Function('barSizes', 'barSize', apiFor[1], apiFor[2]
+ assertEqual(stateBarSizeFor(copy, 26, 'eDP-1'), 40, 'a plugin reads a notch screen\'s thickness')
+ assertEqual(stateBarSizeFor(copy, 26, 'HDMI-A-1'), 26, 'a plugin falls back to barSize for a screen with none')
+ assertEqual(stateBarSizeFor({}, 26, 'eDP-1'), 26, 'a plugin under a bar without per-screen sizes gets barSize')
++
++// A rounded corner's physical radius becomes a logical inset for the bar's side widgets: the corner circle's
++// run at the bar's mid-height, so it shrinks with the scale and is 0 without a radius.
++assertEqual(bar.cornerInset(142, 26, 2), 31, 'a 142 px corner insets a 26 px bar by 31 px at scale 2')
++assertEqual(bar.cornerInset(142, 26, 1), 83, 'the same corner insets it by 83 px at scale 1')
++assertEqual(bar.cornerInset(142, 26, 0), 83, 'a missing scale reads as 1')
++for (const none of [0, -5, undefined, null, 'x'])
++  assertEqual(bar.cornerInset(none, 26, 2), 0, `square corners (${none}) need no inset`)
++assertEqual(bar.cornerInset(142, 0, 2), 0, 'a bar without thickness needs no inset')
++assertEqual(bar.cornerInset(20, 26, 2), 0, 'a bar thicker than the corner needs no inset')
+ JS
