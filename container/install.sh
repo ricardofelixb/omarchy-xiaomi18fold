@@ -55,6 +55,7 @@ validate_environment() {
   sudo -v
   mkdir -p "$HOME/.cache/tmp" "$HOME/.cache/makepkg" "$HOME/.local/bin" "$HOME/.local/state/omarchy-alarm"
   export TMPDIR="$HOME/.cache/tmp"
+  export GOPATH="$HOME/.cache/go" # yay's makepkg runs build Go packages here, not in ~/go
   export OMARCHY_PATH="$HOME/.local/share/omarchy"
   export PATH="$OMARCHY_PATH/bin:$HOME/.local/bin:$PATH"
 }
@@ -114,6 +115,10 @@ configure_build_directories() {
   mkdir -p "$HOME/.config/pacman" "$HOME/.cache/makepkg" "$HOME/.cache/tmp"
   local file="$HOME/.config/pacman/makepkg.conf"
   touch "$file"
+  # Earlier installs let AUR Go builds cache modules in ~/go; drop it when that is all it holds.
+  if [[ $(ls -A "$HOME/go" 2>/dev/null) == pkg && $(ls -A "$HOME/go/pkg") == mod ]]; then
+    chmod -R u+w "$HOME/go" && rm -rf "$HOME/go"
+  fi
   if ! grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
     {
       printf '\n# BEGIN omarchy-alarm build\n'

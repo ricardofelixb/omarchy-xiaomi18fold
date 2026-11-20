@@ -124,6 +124,14 @@ adds to upstream files.
 - **Where:** `patches/0009-touch-drag-scrolls-app-launcher.patch`, `patches/KNOWN-TREES`.
 - **Drop when:** upstream lets a touch scroll the app grid.
 
+### Home folder: ~/Projects exists, Go builds stay out of ~/go
+
+- **Kind:** 1, useful to anyone. **Upstream candidate** (the `~/Projects` half; Omarchy's `bin/omarchy-provision-user` should `mkdir` Projects like `omarchy-upgrade-to-quattro` does).
+- **Bug:** Files showed a "Projects" bookmark that opened "Unable to find /home/droid/Projects", because Omarchy 4.5.0 bookmarks it but never creates it. Separately, AUR Go packages built from source filled `~/go` (969 MB of module cache); stock Omarchy gets yay prebuilt.
+- **Fix:** `lib/home-layout.sh` also creates `~/Projects`. `GOPATH` is `~/.cache/go` in `config/pacman/makepkg.conf` (yay's makepkg runs inherit it), in `container/install.sh`'s environment and for `fold-omarchy-update`'s `yay -Sua`. The installer removes `~/go` once, only when it holds nothing but `pkg/mod`.
+- **Where:** `lib/home-layout.sh`, `config/pacman/makepkg.conf`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/home-layout-regressions.sh`.
+- **Drop when:** upstream Omarchy creates `~/Projects` (first half); the `GOPATH` part stays unless upstream builds Go packages elsewhere.
+
 ## Quick checks
 
 - `bash tests/run.sh --check patches`
@@ -132,6 +140,7 @@ adds to upstream files.
 - `bash tests/fold-drawer-regressions.sh`
 - `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`
+- `bash tests/home-layout-regressions.sh`
 - `python3 -B tests/tool-programs-regressions.py`
 - `python3 -B tests/desktop-extras-regressions.py`
 

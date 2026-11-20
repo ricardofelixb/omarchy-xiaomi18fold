@@ -66,7 +66,7 @@ main() {
   command -v fold-hyprgrass-build >/dev/null && { fold-hyprgrass-build || warn 'hyprgrass plugin build failed (touch gestures may be off).'; }
   if ((move_failed)); then warn 'Omarchy did not move to the new release, so its migrations were not run.'; else run_migrations || status=1; fi
   say 'Update AUR packages'
-  if command -v yay >/dev/null; then yay -Sua --noconfirm < /dev/null || warn 'AUR update failed (nonfatal).'; fi
+  if command -v yay >/dev/null; then GOPATH=$HOME/.cache/go yay -Sua --noconfirm < /dev/null || warn 'AUR update failed (nonfatal).'; fi
   say 'Re-apply fold config'
   reapply_fold_config || status=1
   # The session and its bar run from the /usr/share/omarchy link; a restart by another path finds no shell.
