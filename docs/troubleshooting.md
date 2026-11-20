@@ -136,12 +136,16 @@ passwd
 
 ## Omarchy 更新
 
-**不要运行 `omarchy-update`** — 它会走 Omarchy 自家软件源和 channel 切换，
-在容器环境中无法正常工作。
+菜单的 **Update System** 和终端的 `omarchy-update` 都可用：补丁 0007 让 `omarchy-update` 转交给
+`fold-omarchy-update`。它依次：把 `arm-port` 分支 rebase 到 Omarchy 最新发布 tag；`pacman -Syu`
+（Arch Linux ARM）；运行待执行的迁移；`yay -Sua`；重新应用折叠机配置并重启 Omarchy shell。
 
-更新方式：在 Debian 宿主按 README 的 `OMARCHY_ALARM_REF=main` 命令重跑安装器。
-它验证固定上游基线并按 patch-id 应用缺失补丁，拒绝覆盖上游 checkout 的未提交修改。
-不要自行 rebase 到另一个 Omarchy tag：本项目补丁和测试针对固定 v4.0.4。
+跳过：钥匙环刷新、快照、引导/内核检查、mise 更新、重启提示，以及 `container/update-skip-migrations.txt`
+里列出的引导/内核迁移（直接标记为已完成）。失败的迁移会提示，下次更新重试。
+
+新版本与本项目补丁冲突时，会提示 “Omarchy <tag> needs a fold update; your system is unchanged”，
+Omarchy 保持原样，只更新软件包。此时若本项目已提供对应补丁（`patches/BASE`），宿主重跑安装器即可。
+更新 Omarchy 需要能访问 github.com（没有镜像）。上一版 `arm-port` 保留为分支 `arm-port-prev`。
 
 ## 性能问题
 

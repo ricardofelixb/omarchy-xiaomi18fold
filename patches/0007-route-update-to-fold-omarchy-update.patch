@@ -1,0 +1,27 @@
+From a6fe741f78519ca07b82553cd334bf5062772b3d Mon Sep 17 00:00:00 2001
+From: omarchy-alarm-nspawn <noreply@example.com>
+Date: Thu, 19 Nov 2026 22:48:08 +0000
+Subject: [PATCH] Route omarchy-update to fold-omarchy-update when it is
+ installed
+
+---
+ bin/omarchy-update | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/bin/omarchy-update b/bin/omarchy-update
+index 8fdef4d..c6d2592 100755
+--- a/bin/omarchy-update
++++ b/bin/omarchy-update
+@@ -8,6 +8,9 @@
+ 
+ set -e
+ 
++# ARM 容器移植：这里没有 [omarchy] 软件源、快照、引导和内核，更新交给 fold-omarchy-update。
++if command -v fold-omarchy-update >/dev/null; then exec fold-omarchy-update "$@"; fi
++
+ update_stay_awake_stopped=0
+ sudo_keepalive_pid=""
+ 
+-- 
+2.47.3
+

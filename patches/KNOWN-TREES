@@ -1,0 +1,16 @@
+# Git tree id after each patch of every patch series the fork has shipped, applied with git am on that series' patches/BASE,
+# one per line: tree id, then a label. The updater marks an arm-port commit as the fork's only when its tree is listed
+# here, so any edit (text, whitespace, placement) or a user commit below it makes the shipped-patch fallback refuse.
+# tests/run.sh --check patches fails until the current series is listed. Only ever append.
+1e94973398d660897e77b6a46c8c2212e4dfec94 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch@6c9f5a4
+368612a58f6554aed12e2bb13133af2c21843b8f 0002-ARM-fcitx5-.local-bin-fcitx5-autostart-Debian.patch@6c9f5a4
+e27ae2bba9f73e2c05f4e37e6525b4136d85771a 0003-cn-skip-mise-network-provisioning.patch@08b42cd
+6b181650fad7e8bfaa3f35a9e4cefa524c5201eb 0004-qualify-shell-colors-for-Qt-6.12.patch@313466b
+223876e4d6bbc8f4dc615064f207aec7707156a0 0005-programs-only-tool-provisioning.patch@eb2a54e
+8e4b3395c3d38715314103db39014ec4ecf13bff 0006-preserve-installer-home-layout.patch@eb2a54e
+28172cb4e2a510ec8e046cc178fbd412f9456e4c 0001-ARM-uwsm-systemd-user-llvmpipe-nspawn.patch@261be25
+a5f9eff4fbf84aab2902737e5bf7774e5a1fd3f2 0002-ARM-fcitx5-.local-bin-fcitx5-autostart-Debian.patch@261be25
+57ffef5a42fc2094cdfbacf30be0d983347cf55c 0003-cn-skip-mise-network-provisioning.patch@261be25
+c45ef1b2a784f80c808b8c015cb942636bbd8ff1 0005-programs-only-tool-provisioning.patch@261be25
+f03f0b7a32c4decebe75ab10e0b198fb13272fa8 0006-preserve-installer-home-layout.patch@261be25
+7be8f8895508c25c4b29850d03f60b7fd81a9ec2 0007-route-update-to-fold-omarchy-update.patch@261be25

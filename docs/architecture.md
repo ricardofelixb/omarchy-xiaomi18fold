@@ -2,7 +2,7 @@
 
 ## 概述
 
-omarchy-alarm-nspawn 在 systemd-nspawn 容器中运行 Omarchy v4.0.4 桌面环境。
+omarchy-alarm-nspawn 在 systemd-nspawn 容器中运行 Omarchy v4.5.0 桌面环境。
 由于容器环境的限制，需要对 Omarchy 的系统管理部分进行适配。
 
 ## 核心问题：uwsm 和 systemd --user

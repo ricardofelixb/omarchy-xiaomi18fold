@@ -14,7 +14,7 @@ scripts() {
   find "$ROOT" -path "$ROOT/.git" -prune -o -type f \( -name '*.sh' -o -path "$ROOT/host/bin/*" -o -path "$ROOT/container/bin/*" \) -print0
 }
 names() { sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$@" | sort -u; }
-check_mirrors() { bash "$ROOT/tests/gtk-im-module-regressions.sh"; bash "$ROOT/tests/install-session-regressions.sh"; python3 "$ROOT/tests/desktop-tweaks-regressions.py"; python3 "$ROOT/tests/desktop-extras-regressions.py"; bash "$ROOT/tests/tool-programs-regressions.sh"; bash "$ROOT/tests/mesa-regressions.sh"; bash "$ROOT/tests/mirrors.sh"; bash "$ROOT/tests/installer-regressions.sh"; bash "$ROOT/tests/display-regressions.sh"; bash "$ROOT/tests/machine-id-regressions.sh"; bash "$ROOT/tests/bootstrap-regressions.sh"; bash "$ROOT/tests/session-regressions.sh"; bash "$ROOT/tests/audit-regressions.sh"; bash "$ROOT/tests/fold-hyprgrass-build-regressions.sh"; bash "$ROOT/tests/fold-drawer-regressions.sh"; }
+check_mirrors() { bash "$ROOT/tests/gtk-im-module-regressions.sh"; bash "$ROOT/tests/install-session-regressions.sh"; python3 "$ROOT/tests/desktop-tweaks-regressions.py"; python3 "$ROOT/tests/desktop-extras-regressions.py"; bash "$ROOT/tests/tool-programs-regressions.sh"; bash "$ROOT/tests/mesa-regressions.sh"; bash "$ROOT/tests/mirrors.sh"; bash "$ROOT/tests/installer-regressions.sh"; bash "$ROOT/tests/display-regressions.sh"; bash "$ROOT/tests/machine-id-regressions.sh"; bash "$ROOT/tests/bootstrap-regressions.sh"; bash "$ROOT/tests/session-regressions.sh"; bash "$ROOT/tests/audit-regressions.sh"; bash "$ROOT/tests/fold-hyprgrass-build-regressions.sh"; bash "$ROOT/tests/fold-drawer-regressions.sh"; bash "$ROOT/tests/fold-omarchy-update-regressions.sh"; }
 check_syntax() {
   local f
   while IFS= read -r -d '' f; do bash -n "$f"; done < <(scripts)
@@ -36,7 +36,7 @@ check_patches() {
   if [[ ! -d $CACHE/upstream/.git ]]; then
     work=$(mktemp -d "$CACHE/clone.XXXXXX")
     trap 'rm -rf -- "$work"' EXIT
-    timeout 40 git clone --quiet --depth 1 --branch v4.0.4 https://github.com/basecamp/omarchy.git "$work"
+    timeout 40 git clone --quiet --depth 1 --branch v4.5.0 https://github.com/omacom/omarchy.git "$work"
     mv "$work" "$CACHE/upstream"
     trap - EXIT
   fi
@@ -62,6 +62,13 @@ for path in Path(sys.argv[1]).rglob('*.qml'):
         assert 'import qs.Commons as OmarchyColors' in text, path
 print('PASS qualified shell color consumers')
 PYCOLORS
+  # Every commit the series makes must be listed in KNOWN-TREES, which the updater uses to recognise fork commits.
+  git clone --quiet --shared "$CACHE/upstream" "$work/am"
+  for p in "${patches[@]}"; do
+    git -C "$work/am" -c user.name=fold -c user.email=fold@example.com am --quiet "$p"
+    grep -q "^$(git -C "$work/am" rev-parse 'HEAD^{tree}') " "$ROOT/patches/KNOWN-TREES" || {
+      echo "append $(git -C "$work/am" rev-parse 'HEAD^{tree}') ${p##*/} to patches/KNOWN-TREES" >&2; return 1; }
+  done
   bash "$ROOT/tests/patch-upgrade-regressions.sh"
 }
 check_repo_packages() {

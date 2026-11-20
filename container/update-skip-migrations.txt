@@ -1,0 +1,34 @@
+# Omarchy migrations that fold-omarchy-update marks done without running: they change the
+# boot loader, kernel, initramfs or Plymouth, which the container does not own (the Android
+# host boots the kernel). Format: <migration id> # reason. Anything not listed runs, and most
+# migrations guard themselves. Migrations up to v4.0.4 are already marked done on every install.
+1789928586  # Retain the installed ARM Limine recovery packages during orphan cleanup
+1790517230  # Boot the DGX Spark without a UKI to skip a 20-second firmware delay
+1790917773  # Boot N1x laptops quietly so Plymouth stays up from the LUKS prompt to login
+1790950659  # Light the N1x panel for Plymouth's LUKS prompt
+1790953795  # Give the ASUS ProArt P14 (NVIDIA N1x) the RAM its firmware reserves for Windows' GPU
+1790984400  # Give the Dell XPS 16 (NVIDIA N1x) the RAM its firmware reserves for Windows' GPU
+1790984600  # Turn on USB4 and Thunderbolt on the N1x
+1790984700  # Leave the N1x GPU firmware room below its memory, which a large external display reaches i
+1791077437  # Move NVIDIA N1x laptops to linux-omarchy-n1x and drop the bring-up scaffolding
+1791152480  # Drop the N1x rescue entry and pacman hook that the fallback entry replaces
+1791408113  # Make the ASUS ProArt P14 keyboard's top row send media keys by default
+1791581004  # Stop the boot from waiting on a black screen for the console to answer
+1791621765  # Rebuild the boot image so a non-Latin keyboard layout stays out of the LUKS prompt
+1791769486  # Remove approval for new USB and Thunderbolt devices
+1791784278  # Have the N1x firmware reserve 4 GiB for the GPU instead of reclaiming its 62.5 GiB in the 
+1791898365  # Speed up the boot menu and keep it quiet until a key is pressed
+1792965062  # Name the hibernation resume device by its filesystem UUID
+# Need a package that only Omarchy's own repo carries; the container has no [omarchy] repo, so they always fail.
+1788129995  # Install omasnap
+1789764927  # Install owe and owe-lockfeed
+1790539857  # Install monologue
+1790542069  # Install hype
+1791345484  # Replace the Disk Usage TUI with Disktree
+1791403310  # Install omarchy-hyprland-titlebars
+1791708587  # Install signed
+1791382872  # Switch default mise tools to lazy shims (waits for the omarchy-settings package)
+1792041364  # Install gliff
+1792504295  # Build lazy shims for the new default coding agents (waits for the omarchy-settings package)
+# Would remove the container's own passwordless sudo, which the fold's helpers rely on.
+1788163635  # Remove legacy temporary passwordless sudo grants

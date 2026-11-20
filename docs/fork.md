@@ -74,8 +74,18 @@ adds to upstream files.
 - **Where:** `container/bin/fold-window-menu`, `container/bin/uwsm-app`, comment lines in `config/hypr/autostart.lua`, `config/hypr/touch.lua`, `container/bin/fold-dismiss-overlays`, `host/fold/bin/fold-touch-flush`, `host/fold/bin/fold-touch-flushd`.
 - **Drop when:** never, unless upstream adopts English text.
 
+### Omarchy's Update System works on the Fold
+
+- **Kind:** 3, machine-specific (the Arch ARM container has no `[omarchy]` repo, kernel or boot loader). Fork-only.
+- **Bug:** `omarchy-update` was unusable here (`docs/troubleshooting.md` said not to run it), so Omarchy stayed on v4.0.4.
+- **Fix:** `container/bin/fold-omarchy-update` rebases `arm-port` onto the newest release tag (on a conflict: aborts, says so, and falls back to the fork's own `patches/` when `patches/BASE` is that tag and every commit on `arm-port` carries the fork note in `refs/notes/fold`, which the installer and the updater set (a commit gets it only when its git tree is listed in `patches/KNOWN-TREES`, the trees after every patch of every series the fork shipped; `tests/run.sh --check patches` fails until a refreshed series is appended; rebase copies the note; any edited fork commit or user commit makes it refuse), runs `pacman -Syu` and `yay -Sua`, runs pending migrations except those in `container/update-skip-migrations.txt` (boot/kernel, marked done), re-applies the config overlay and restarts the shell. Without a move there are no migrations, and without the skip list none run either; the fallback is refused when `arm-port` holds commits the fork did not make. The rebase code is `lib/omarchy-move.sh`, which the installer also uses to move an existing older checkout onto the pin. Patch 0007 makes `bin/omarchy-update` exec it. The overlay moved to `lib/config-overlay.sh`; the installer keeps a copy of patches, config and the overlay in `~/.local/share/fold` for it. Patches 0001-0006 were refreshed onto v4.5.0 (old 0004, the Qt colors fix, is upstream now) and the pin moved to `omacom/omarchy` v4.5.0.
+- **Where:** `container/bin/fold-omarchy-update`, `container/update-skip-migrations.txt`, `lib/config-overlay.sh`, `lib/omarchy-move.sh`, `patches/KNOWN-TREES`, `container/install.sh` (pin, source line, one step), `patches/*`, `tests/fold-omarchy-update-regressions.sh`, `tools/privacy-allowlist.txt` (moved hash line), `README.md`, `docs/troubleshooting.md`.
+- **Known follow-up:** the CN vendored tarball (`vendor/`, `lib/network.sh`) is still Omarchy v4.0.4, so a fresh CN install fails the v4.5.0 pin check until it is refreshed; release updates have no CN mirror.
+- **Drop when:** upstream ships an ARM package set and `omarchy-update` works on Arch Linux ARM.
+
 ## Quick checks
 
+- `bash tests/fold-omarchy-update-regressions.sh`
 - `bash tests/fold-drawer-regressions.sh`
 - `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`
