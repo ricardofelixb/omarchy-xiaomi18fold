@@ -67,6 +67,7 @@ before=$(sha256sum "$conf"); ! run_cbd 2>/dev/null || { echo 'FAIL: misordered m
 # Every test in tests/run.sh is a separate command.
 ! grep -Eq '\.(sh|py)"[[:space:]]*bash ' "$ROOT/tests/run.sh" || { echo 'FAIL: tests/run.sh joins two commands without a separator'; exit 1; }
 # A symlinked makepkg.conf stays a symlink; its target gets the refresh.
+printf '# BEGIN omarchy-alarm build\n# END omarchy-alarm build\n' > "$conf"
 mv "$conf" "$upg/dotfile-makepkg.conf"; ln -s "$upg/dotfile-makepkg.conf" "$conf"
 run_cbd
 [[ -L $conf && $(grep -c '^export GOPATH=' "$upg/dotfile-makepkg.conf") == 1 ]] || { echo 'FAIL: symlinked makepkg.conf replaced or not refreshed'; exit 1; }
