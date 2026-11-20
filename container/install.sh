@@ -116,12 +116,19 @@ configure_build_directories() {
   touch "$file"
   if grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
     # Refresh the managed block in place so settings added later (GOPATH) reach existing installs.
-    local updated
-    updated=$(awk -v block="$ROOT/config/pacman/makepkg.conf" '
+    if ! grep -q '^# END omarchy-alarm build$' "$file"; then
+      echo "WARNING: $file has a build block without its end marker; left unchanged. Fix it by hand." >&2
+      return 0
+    fi
+    local tmp
+    tmp=$(mktemp "$file.XXXXXX") || return 1
+    if awk -v block="$ROOT/config/pacman/makepkg.conf" '
       /^# BEGIN omarchy-alarm build$/ { print; while ((getline line < block) > 0) print line; skip = 1; next }
       /^# END omarchy-alarm build$/ { skip = 0 }
-      !skip' "$file")
-    printf '%s\n' "$updated" > "$file"
+      !skip' "$file" > "$tmp" && chmod --reference="$file" "$tmp" && mv -f "$tmp" "$file"; then :; else
+      rm -f "$tmp"
+      echo "WARNING: could not refresh the build block in $file; left unchanged." >&2
+    fi
   else
     {
       printf '\n# BEGIN omarchy-alarm build\n'
