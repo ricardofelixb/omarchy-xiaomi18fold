@@ -1,0 +1,135 @@
+From 24be96da9f3d1119e0746a94e2ec65ab4c598fe9 Mon Sep 17 00:00:00 2001
+From: omarchy-alarm-nspawn <noreply@example.com>
+Date: Fri, 20 Nov 2026 00:48:40 +0000
+Subject: [PATCH] Keep the bar's side widgets clear of rounded screen corners
+
+[bar] corner-radius (physical px) pushes the first and last bar widgets in to where the corner circle meets the bar's mid-height, at any scale.
+---
+ docs/omarchy-shell.md         |  2 ++
+ shell/Commons/Style.qml       |  9 ++++++++-
+ shell/plugins/bar/Bar.qml     | 12 +++++++++---
+ shell/plugins/bar/BarModel.js | 13 +++++++++++++
+ 4 files changed, 32 insertions(+), 4 deletions(-)
+
+diff --git a/docs/omarchy-shell.md b/docs/omarchy-shell.md
+index 98559d0..1e93e74 100644
+--- a/docs/omarchy-shell.md
++++ b/docs/omarchy-shell.md
+@@ -412,6 +412,8 @@ A panel with a camera cutout (a notch) at its top keeps a top bar out of it: the
+ 
+ A panel matches a screen whose connector name starts with `connector` and whose mode, as `hyprctl monitors` reports it, is `width` x `height` physical pixels, at any scale; `top` is the physical rows the cutout covers. On such a panel, `[bar] notch-height` (logical pixels, not scaled with the font) sets the floor by hand. The bar reads the file when the shell starts and whenever it changes; a file installed where its directory didn't exist yet (the platform root itself, on a first install) is read at the next shell start.
+ 
++A panel with rounded corners keeps a horizontal bar's first and last widgets out of them: `[bar] corner-radius` is the corner radius in physical pixels (0, the default, means square corners; it is not scaled with the font). The bar starts its side widgets where that circle meets the bar's mid-height, at any scale.
++
+ Until Hyprland reports a screen's mode, a top bar there waits to appear if a description names the screen's connector, unless the logical size times Qt's whole-number scale already matches a panel. It then appears at its floor rather than growing once windows are laid out, and never guesses a floor for a panel nothing describes. After two seconds without a mode it appears without a floor. Notifications clear the bar as thick as it is on their screen. A plugin's `shell.bar` gives the same through `barSizeFor(screenName)` and the `barSizes` map (screen name to thickness); its `barSize` stays the configured size, which the widgets are drawn at.
+ 
+ ## Custom bar modules
+diff --git a/shell/Commons/Style.qml b/shell/Commons/Style.qml
+index 6016cce..22a7411 100644
+--- a/shell/Commons/Style.qml
++++ b/shell/Commons/Style.qml
+@@ -350,6 +350,13 @@ QtObject {
+       var v = Number(root.barOverrides["notch-height"])
+       return (isFinite(v) && v > 0) ? Math.round(v) : 0
+     }
++    // Corner radius of a rounded panel in physical px, or 0 for square
++    // corners. The bar keeps its side widgets clear of the corners (see
++    // BarModel.cornerInset), so it never scales with the font.
++    readonly property int cornerRadius: {
++      var v = Number(root.barOverrides["corner-radius"])
++      return (isFinite(v) && v > 0) ? Math.round(v) : 0
++    }
+     readonly property int iconSlot:       root.barToken("icon-slot",       27)
+     readonly property int iconCanvas:     root.barToken("icon-canvas",     16)
+     readonly property int iconFont:       root.barToken("icon-font",       13)
+@@ -429,7 +436,7 @@ QtObject {
+       } else if (section === "bar") {
+         if (key === "scale-with-font") {
+           nextBarScaleWithFont = boolToken(raw, nextBarScaleWithFont)
+-        } else if (key === "size-horizontal" || key === "size-vertical" || key === "notch-height"
++        } else if (key === "size-horizontal" || key === "size-vertical" || key === "notch-height" || key === "corner-radius"
+           || key === "icon-slot" || key === "icon-canvas" || key === "icon-font"
+           || key === "icon-size" || key === "status-slot") {
+           var b = parseInt(raw, 10)
+diff --git a/shell/plugins/bar/Bar.qml b/shell/plugins/bar/Bar.qml
+index 01eeeb8..ef68d42 100644
+--- a/shell/plugins/bar/Bar.qml
++++ b/shell/plugins/bar/Bar.qml
+@@ -753,7 +753,8 @@ Item {
+     return monitor ? ({
+       width: monitor.width,
+       height: monitor.height,
+-      transform: monitor.lastIpcObject ? monitor.lastIpcObject.transform : 0
++      transform: monitor.lastIpcObject ? monitor.lastIpcObject.transform : 0,
++      scale: monitor.lastIpcObject ? monitor.lastIpcObject.scale : 0
+     }) : null
+   }
+ 
+@@ -1762,6 +1763,8 @@ Item {
+     }
+ 
+     readonly property var panelMode: root.panelModeFor(screen)
++    // Hyprland's exact scale; Qt's whole-number ratio stands in until it answers.
++    readonly property real panelScale: Number(panelMode && panelMode.scale) > 0 ? panelMode.scale : devicePixelRatio
+ 
+     readonly property bool centerBesideRight: BarModel.centerBesideRight(root.displayCutouts, root.position, screen.name, screen.width, screen.height, screen.devicePixelRatio, panelMode)
+ 
+@@ -1937,6 +1940,9 @@ Item {
+       Item {
+         anchors.fill: parent
+ 
++        // Side widgets start clear of a rounded panel's corners ([bar] corner-radius).
++        readonly property int sideMargin: Math.max(Style.space(8), BarModel.cornerInset(Style.bar.cornerRadius, root.barSize, barWindow.panelScale) + Style.space(4))
++
+         WidgetPool { id: horizontalPool }
+ 
+         CenterModules {
+@@ -1950,7 +1956,7 @@ Item {
+           window: barWindow
+           pool: horizontalPool
+           anchors.left: parent.left
+-          anchors.leftMargin: Style.space(8)
++          anchors.leftMargin: parent.sideMargin
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+@@ -1959,7 +1965,7 @@ Item {
+           pool: horizontalPool
+           id: rightModules
+           anchors.right: parent.right
+-          anchors.rightMargin: Style.space(8)
++          anchors.rightMargin: parent.sideMargin
+           anchors.verticalCenter: parent.verticalCenter
+         }
+ 
+diff --git a/shell/plugins/bar/BarModel.js b/shell/plugins/bar/BarModel.js
+index 8d3c9d6..784f20b 100644
+--- a/shell/plugins/bar/BarModel.js
++++ b/shell/plugins/bar/BarModel.js
+@@ -644,6 +644,18 @@ function cutoutPending(cutouts, position, screenName, logicalWidth, logicalHeigh
+   return described && !(cutoutTop(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode) > 0)
+ }
+ 
++// How far in from a screen edge, in logical pixels, a bar `thickness` logical
++// pixels thick must start its side widgets so a rounded corner of `radius`
++// physical pixels doesn't clip their middle: the corner circle's run at the
++// bar's mid-height. 0 for square corners or a bar thicker than the radius.
++function cornerInset(radius, thickness, scale) {
++  var r = Number(radius)
++  var s = Number(scale) > 0 ? Number(scale) : 1
++  var depth = Number(thickness) * s / 2
++  if (!(r > 0) || !(Number(thickness) > 0) || depth >= r) return 0
++  return Math.ceil((r - Math.sqrt(r * r - (r - depth) * (r - depth))) / s)
++}
++
+ // The bar's thickness on the screen with this name, from the sizes a bar
+ // publishes by screen name, or `fallback` (its configured size) for a screen
+ // it has none for.
+@@ -693,6 +705,7 @@ if (typeof module !== "undefined") {
+     peeksAt: peeksAt,
+     fullscreenOn: fullscreenOn,
+     centerBesideRight: centerBesideRight,
++    cornerInset: cornerInset,
+     cutoutPending: cutoutPending,
+     cutoutTop: cutoutTop,
+     isDrawnSlot: isDrawnSlot,
