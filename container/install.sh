@@ -211,6 +211,10 @@ install_system_helpers() {
   fi
   as_root ln -sfnT "$OMARCHY_PATH" /usr/share/omarchy
   as_root install -Dm755 "$ROOT/container/bin/uwsm-app" /usr/local/bin/uwsm-app
+  # shellcheck source=../lib/omarchy-move.sh
+  source "$ROOT/lib/omarchy-move.sh"
+  omarchy_install_packaged_helpers ||
+    echo 'FAILED (nonfatal) packaged Omarchy helpers: theme changes may report "Theme not applied everywhere"; rerun to retry.' >&2
 }
 seed_omarchy_config() {
   mkdir -p "$HOME/.config"
@@ -363,7 +367,7 @@ step install_repo_packages 'Install repository packages (core plus selected full
 step configure_build_directories 'Set makepkg BUILDDIR and TMPDIR beneath HOME/.cache'
 step install_aur_packages 'Install verified yay and requested desktop packages (unless --no-aur)'
 step clone_and_patch_omarchy 'Clone upstream v4.5.0, verify patches/BASE, apply ARM patches once'
-step install_system_helpers 'Link /usr/share/omarchy and install /usr/local/bin/uwsm-app'
+step install_system_helpers 'Link /usr/share/omarchy, install /usr/local/bin/uwsm-app and the packaged-path Omarchy helpers with their sudoers rules'
 step seed_omarchy_config 'Seed missing upstream configuration defaults'
 step install_config_overlay 'Install reviewed config allowlist and fcitx5-autostart/host-run helpers'
 step install_fold_payload 'Keep a copy of patches, config and overlay code for fold-omarchy-update'
