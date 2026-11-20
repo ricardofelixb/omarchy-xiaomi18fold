@@ -95,3 +95,21 @@ omarchy_install_packaged_helpers() {
   done
   return "$failed"
 }
+
+# Omarchy's package installs applications/icons/*.png as hicolor icons named by its safe_icon_name
+# (lowercase, runs of non-alphanumerics -> "-"); a git checkout has no package, so launcher entries
+# that use those themed names show the gear. Copies into the user's theme (no root), refreshes
+# changed files and leaves other icons alone. Needs OMARCHY_PATH.
+omarchy_install_app_icons() {
+  local theme=$HOME/.local/share/icons/hicolor png name changed=0
+  mkdir -p "$theme/256x256/apps"
+  for png in "$OMARCHY_PATH"/applications/icons/*.png; do
+    [[ -f $png ]] || continue
+    name=$(basename "$png" .png | tr '[:upper:]' '[:lower:]' | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//')
+    cmp -s "$png" "$theme/256x256/apps/$name.png" && continue
+    install -m644 "$png" "$theme/256x256/apps/$name.png" && changed=1
+  done
+  # -t: the user theme dir has no index.theme of its own.
+  ((changed)) && { gtk-update-icon-cache -q -t "$theme" || true; }
+  return 0
+}

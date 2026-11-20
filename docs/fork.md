@@ -100,9 +100,18 @@ adds to upstream files.
 - **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-packaged-helpers-regressions.sh`, `tests/run.sh`.
 - **Drop when:** upstream ships an ARM package set, or the checkout path gets a dev-link rule for these helpers.
 
+### Launcher apps show their real icons
+
+- **Kind:** 1, useful to anyone running Omarchy from git. **Upstream candidate.**
+- **Bug:** Omarchy 4.5's desktop entries use themed icon names (`basecamp`, `google-contacts`, ...); its package installs `applications/icons/*.png` as hicolor icons, a git checkout doesn't, so most launcher apps showed the gear.
+- **Fix:** `omarchy_install_app_icons` copies each icon to `~/.local/share/icons/hicolor/256x256/apps/<safe_icon_name>.png` (Omarchy's naming rule), refreshing changed files only; run by `container/install.sh` and `fold-omarchy-update`.
+- **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-app-icons-regressions.sh`.
+- **Drop when:** upstream's installer provides the bundled icons without its package.
+
 ## Quick checks
 
 - `bash tests/fold-omarchy-update-regressions.sh`; `bash tests/omarchy-packaged-helpers-regressions.sh`
+- `bash tests/omarchy-app-icons-regressions.sh`
 - `bash tests/fold-drawer-regressions.sh`
 - `bash tests/fold-hyprgrass-build-regressions.sh`; `bash tests/installer-regressions.sh`
 - `luac -p config/hypr/*.lua`

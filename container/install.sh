@@ -216,6 +216,7 @@ install_system_helpers() {
   omarchy_install_packaged_helpers ||
     echo 'FAILED (nonfatal) packaged Omarchy helpers: theme changes may report "Theme not applied everywhere"; rerun to retry.' >&2
 }
+install_bundled_app_icons() { omarchy_install_app_icons; }
 seed_omarchy_config() {
   mkdir -p "$HOME/.config"
   # Seed missing defaults while retaining pre-existing user files.
@@ -368,6 +369,7 @@ step configure_build_directories 'Set makepkg BUILDDIR and TMPDIR beneath HOME/.
 step install_aur_packages 'Install verified yay and requested desktop packages (unless --no-aur)'
 step clone_and_patch_omarchy 'Clone upstream v4.5.0, verify patches/BASE, apply ARM patches once'
 step install_system_helpers 'Link /usr/share/omarchy, install /usr/local/bin/uwsm-app and the packaged-path Omarchy helpers with their sudoers rules'
+step install_bundled_app_icons 'Install Omarchy bundled app icons into the user hicolor theme'
 step seed_omarchy_config 'Seed missing upstream configuration defaults'
 step install_config_overlay 'Install reviewed config allowlist and fcitx5-autostart/host-run helpers'
 step install_fold_payload 'Keep a copy of patches, config and overlay code for fold-omarchy-update'
