@@ -59,6 +59,8 @@ main() {
   if declare -F omarchy_install_packaged_helpers >/dev/null; then omarchy_install_packaged_helpers || warn 'Packaged Omarchy helpers were not all refreshed; rerun container/install.sh.'; fi
   # The new release can bundle new app icons; the checkout is on whatever release it ended on.
   declare -F omarchy_install_app_icons >/dev/null && { omarchy_install_app_icons || warn 'Bundled app icons were not refreshed.'; }
+  # Home files Omarchy's quattro upgrade makes once (screensaver branding, ...): create any a 4.0.4 install lacks.
+  if declare -F omarchy_seed_home_defaults >/dev/null; then omarchy_seed_home_defaults || warn 'Could not seed the Omarchy home defaults.'; fi
   say 'Update system packages (Arch Linux ARM)'
   if ! sudo env OMARCHY_UPDATE_PACMAN=1 OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Syu --noconfirm < /dev/null; then
     warn 'Package update failed; migrations and the fold config were not touched.'; return 1

@@ -126,3 +126,24 @@ omarchy_install_app_icons() {
   ((changed)) && { gtk-update-icon-cache -q -t "$theme" || true; }
   return "$failed"
 }
+
+# Omarchy's package seeds these through /etc/skel and its quattro upgrade creates them once; neither runs here,
+# so a fresh install or a 4.0.4 -> 4.5 move lacked them (the screensaver looped "Error reading input file").
+# Mirrors that upgrade's copy steps, but only for what is missing: nothing the user has is overwritten.
+# Skipped on purpose: the Downloads/Pictures/Videos/Projects folders, XDG settings and GTK bookmarks (the
+# fork's home-layout and omarchy-provision-user already make them), hypr toggles/flags.lua (Hyprland copes
+# without it), and everything else the upgrade does (Limine, systemd --user, keyring, hardware).
+omarchy_seed_home_defaults() {
+  local root=$OMARCHY_PATH ext dir skill=$OMARCHY_PATH/default/agents/skills
+  mkdir -p "$HOME/.config/omarchy/branding" "$HOME/.local/share/nautilus-python/extensions"
+  [[ ! -f $root/icon.txt ]] || cp --update=none -- "$root/icon.txt" "$HOME/.config/omarchy/branding/about.txt"
+  [[ ! -f $root/logo.txt ]] || cp --update=none -- "$root/logo.txt" "$HOME/.config/omarchy/branding/screensaver.txt"
+  for ext in localsend.py transcode.py; do
+    [[ ! -f $root/default/nautilus-python/extensions/$ext ]] || cp --update=none -- "$root/default/nautilus-python/extensions/$ext" "$HOME/.local/share/nautilus-python/extensions/"
+  done
+  [[ -d $skill/omarchy ]] || return 0
+  for dir in .agents .claude .codex .pi/agent; do
+    mkdir -p "$HOME/$dir/skills"
+    [[ -e $HOME/$dir/skills/omarchy || -L $HOME/$dir/skills/omarchy ]] || ln -s "$skill/omarchy" "$HOME/$dir/skills/omarchy"
+  done
+}

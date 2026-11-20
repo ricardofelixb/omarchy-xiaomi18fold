@@ -259,6 +259,9 @@ seed_omarchy_config() {
       cp -a --update=none "$item" "$HOME/.config/"
     fi
   done
+  # shellcheck source=../lib/omarchy-move.sh
+  source "$ROOT/lib/omarchy-move.sh"
+  omarchy_seed_home_defaults
 }
 configure_gtk_im_module() { bash "$ROOT/lib/gtk-im-module.sh"; }
 configure_bashrc() {

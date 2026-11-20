@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Regressions for omarchy_install_packaged_helpers (lib/omarchy-move.sh): the helpers Omarchy's package
 # keeps at /usr/bin are installed as root-owned copies with their sudoers rules, a rule visudo rejects is
-# not installed, a missing helper is reported, and the installer and updater both call it.
+# not installed, a missing helper is reported, and the installer and updater both call it. Also
+# omarchy_seed_home_defaults: the one-time home files Omarchy's quattro upgrade makes (screensaver and
+# about branding, nautilus extensions, agent skill link) are created when missing and never overwritten.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
@@ -54,7 +56,23 @@ rm -rf "$dest"; rm "$OP/bin/omarchy-locale-generate"
 out=$(run) && fail 'a missing helper must fail the run'
 grep -q 'no omarchy-locale-generate' <<< "$out" && [[ ! -e $dest/usr/bin/omarchy-locale-generate && ! -e $dest/etc/sudoers.d/omarchy-locale-generate ]] || fail "missing helper handling wrong: $out"
 
+# 5. A home without the quattro one-time files gets them; files the user already has are left alone.
+rm -rf "${OP:?}/default" "${work:?}/home"; mkdir -p "$OP/default/nautilus-python/extensions" "$OP/default/agents/skills/omarchy" "$work/home/.config/omarchy/branding"
+echo icon > "$OP/icon.txt"; echo logo > "$OP/logo.txt"; echo ext > "$OP/default/nautilus-python/extensions/localsend.py"; echo ext2 > "$OP/default/nautilus-python/extensions/transcode.py"
+seed() { (HOME=$work/home OMARCHY_PATH=$OP; source "$ROOT/lib/omarchy-move.sh"; omarchy_seed_home_defaults); }
+echo custom > "$work/home/.config/omarchy/branding/screensaver.txt"
+seed; b=$work/home/.config/omarchy/branding
+[[ $(cat "$b/screensaver.txt") == custom ]] || fail 'an existing screensaver.txt was overwritten'
+[[ $(cat "$b/about.txt") == icon ]] || fail 'missing about.txt not created'
+rm -rf "$b"; seed
+[[ $(cat "$b/about.txt") == icon && $(cat "$b/screensaver.txt") == logo ]] || fail 'a home without branding/ must get both files'
+[[ -f $work/home/.local/share/nautilus-python/extensions/transcode.py && -L $work/home/.agents/skills/omarchy ]] || fail 'nautilus extensions or the agent skill link missing'
+echo mine > "$work/home/.local/share/nautilus-python/extensions/localsend.py"; seed
+[[ $(cat "$work/home/.local/share/nautilus-python/extensions/localsend.py") == mine ]] || fail 'an existing nautilus extension was overwritten'
+
 # 4. The installer and the updater both call it.
 grep -q 'omarchy_install_packaged_helpers' <(sed -n '/^install_system_helpers() {/,/^}/p' "$ROOT/container/install.sh") || fail 'installer does not install the helpers'
 grep -q 'omarchy_install_packaged_helpers' "$ROOT/container/bin/fold-omarchy-update" || fail 'updater does not refresh the helpers'
+grep -q 'omarchy_seed_home_defaults' <(sed -n '/^seed_omarchy_config() {/,/^}/p' "$ROOT/container/install.sh") || fail 'installer does not seed the home defaults'
+grep -q 'omarchy_seed_home_defaults' "$ROOT/container/bin/fold-omarchy-update" || fail 'updater does not seed the home defaults'
 echo 'omarchy packaged helper regressions passed'
