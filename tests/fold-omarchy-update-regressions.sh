@@ -128,6 +128,17 @@ rm -f "$toml"
 printf '[bar]\nposition = "top"\n' > "$toml"; chmod 444 "$toml"; overlay
 [[ $(cat "$toml") == $'[bar]\ncorner-radius = 142\nposition = "top"' && $(stat -c %a "$toml") == 444 ]] || fail "read-only shell.toml not extended with its mode kept: $(cat "$toml")"
 chmod 644 "$toml"; rm -f "$toml"
+# The overlay's status carries a failed seed (the update reports it), but an existing radius needs no write at all.
+overlay_rc() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay >/dev/null 2>&1); }
+printf '[bar]\nposition = "top"\n' > "$toml"
+overlay_rc || fail 'the overlay fails even when shell.toml is writable'
+rm -f "$toml"; printf '[bar]\nposition = "top"\n' > "$toml"; chmod 555 "${toml%/*}"
+if overlay_rc; then chmod 755 "${toml%/*}"; fail 'an unwritable config dir hid a failed corner-radius seed'; fi
+chmod 755 "${toml%/*}"
+printf '[bar]\ncorner-radius = 100\n' > "$toml"; chmod 555 "${toml%/*}"
+overlay_rc || { chmod 755 "${toml%/*}"; fail 'a set corner-radius in a read-only dir still failed'; }
+chmod 755 "${toml%/*}"; [[ $(cat "$toml") == $'[bar]\ncorner-radius = 100' ]] || fail 'a set corner-radius was changed'
+rm -f "$toml"
 
 # 4b. A missing skip list leaves every migration pending instead of running them all.
 : > "$RUN_LOG"; mv "$fold/container/update-skip-migrations.txt" "$work/skip.bak"
