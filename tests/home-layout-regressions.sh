@@ -64,6 +64,13 @@ run_cbd
 printf 'MAKEFLAGS=-j2\n# END omarchy-alarm build\n# BEGIN omarchy-alarm build\nPKGEXT=.keep\n' > "$conf"
 before=$(sha256sum "$conf"); ! run_cbd 2>/dev/null || { echo 'FAIL: misordered markers must stop the installer'; exit 1; }
 [[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: misordered markers were rewritten'; exit 1; }
+# Any marker layout other than exactly one begin then one end stops the installer, file untouched.
+B='# BEGIN omarchy-alarm build'; E='# END omarchy-alarm build'
+for layout in "$B\n$E\nMY_PERSONAL_CONFIG=lost\n$B\n" "$B\n$E\n$B\n$E\nMY_PERSONAL_CONFIG=lost\n" "$B\n$B\n$E\nMY_PERSONAL_CONFIG=lost\n" "$B\n$E\n$E\nMY_PERSONAL_CONFIG=lost\n"; do
+  printf "$layout" > "$conf"; before=$(sha256sum "$conf")
+  ! run_cbd 2>/dev/null || { echo 'FAIL: unbalanced or duplicate markers must stop the installer'; exit 1; }
+  [[ $(sha256sum "$conf") == "$before" ]] || { echo 'FAIL: unbalanced or duplicate markers were rewritten'; exit 1; }
+done
 # Every test in tests/run.sh is a separate command.
 ! grep -Eq '\.(sh|py)"[[:space:]]*bash ' "$ROOT/tests/run.sh" || { echo 'FAIL: tests/run.sh joins two commands without a separator'; exit 1; }
 # A symlinked makepkg.conf stays a symlink; its target gets the refresh.
