@@ -1,26 +1,26 @@
-From e663ad6611406c4206ba57c662fb617de59c73b0 Mon Sep 17 00:00:00 2001
+From 061d63e3537f9e6203fbcdeb59cb6fa4f8490f6e Mon Sep 17 00:00:00 2001
 From: omarchy-alarm-nspawn <noreply@example.com>
 Date: Fri, 20 Nov 2026 00:48:40 +0000
 Subject: [PATCH] Keep the bar's side widgets clear of rounded screen corners
 
-[bar] corner-radius (physical px) pushes the first and last bar widgets in to where the corner circle meets the bar's mid-height, at any scale.
+[bar] corner-radius (physical px) pushes the first and last bar widgets in to where the corner circle meets the bar at a quarter of its thickness, at any scale.
 ---
  docs/omarchy-shell.md          |  2 ++
  shell/Commons/Style.qml        |  9 ++++++++-
  shell/plugins/bar/Bar.qml      | 12 +++++++++---
- shell/plugins/bar/BarModel.js  | 13 +++++++++++++
+ shell/plugins/bar/BarModel.js  | 14 ++++++++++++++
  test/shell.d/bar-notch-test.sh | 10 ++++++++++
- 5 files changed, 42 insertions(+), 4 deletions(-)
+ 5 files changed, 43 insertions(+), 4 deletions(-)
 
 diff --git a/docs/omarchy-shell.md b/docs/omarchy-shell.md
-index 98559d0..1e93e74 100644
+index 98559d0..213af2b 100644
 --- a/docs/omarchy-shell.md
 +++ b/docs/omarchy-shell.md
 @@ -412,6 +412,8 @@ A panel with a camera cutout (a notch) at its top keeps a top bar out of it: the
  
  A panel matches a screen whose connector name starts with `connector` and whose mode, as `hyprctl monitors` reports it, is `width` x `height` physical pixels, at any scale; `top` is the physical rows the cutout covers. On such a panel, `[bar] notch-height` (logical pixels, not scaled with the font) sets the floor by hand. The bar reads the file when the shell starts and whenever it changes; a file installed where its directory didn't exist yet (the platform root itself, on a first install) is read at the next shell start.
  
-+A panel with rounded corners keeps a horizontal bar's first and last widgets out of them: `[bar] corner-radius` is the corner radius in physical pixels (0, the default, means square corners; it is not scaled with the font). The bar starts its side widgets where that circle meets the bar's mid-height, at any scale.
++A panel with rounded corners keeps a horizontal bar's first and last widgets out of them: `[bar] corner-radius` is the corner radius in physical pixels (0, the default, means square corners; it is not scaled with the font). The bar starts its side widgets where that circle meets the bar at a quarter of its thickness (where tall icons' tops sit), at any scale.
 +
  Until Hyprland reports a screen's mode, a top bar there waits to appear if a description names the screen's connector, unless the logical size times Qt's whole-number scale already matches a panel. It then appears at its floor rather than growing once windows are laid out, and never guesses a floor for a panel nothing describes. After two seconds without a mode it appears without a floor. Notifications clear the bar as thick as it is on their screen. A plugin's `shell.bar` gives the same through `barSizeFor(screenName)` and the `barSizes` map (screen name to thickness); its `barSize` stays the configured size, which the widgets are drawn at.
  
@@ -104,21 +104,22 @@ index 01eeeb8..ef68d42 100644
          }
  
 diff --git a/shell/plugins/bar/BarModel.js b/shell/plugins/bar/BarModel.js
-index 8d3c9d6..784f20b 100644
+index 8d3c9d6..ca5fcb3 100644
 --- a/shell/plugins/bar/BarModel.js
 +++ b/shell/plugins/bar/BarModel.js
-@@ -644,6 +644,18 @@ function cutoutPending(cutouts, position, screenName, logicalWidth, logicalHeigh
+@@ -644,6 +644,19 @@ function cutoutPending(cutouts, position, screenName, logicalWidth, logicalHeigh
    return described && !(cutoutTop(cutouts, screenName, logicalWidth, logicalHeight, devicePixelRatio, mode) > 0)
  }
  
 +// How far in from a screen edge, in logical pixels, a bar `thickness` logical
 +// pixels thick must start its side widgets so a rounded corner of `radius`
-+// physical pixels doesn't clip their middle: the corner circle's run at the
-+// bar's mid-height. 0 for square corners or a bar thicker than the radius.
++// physical pixels doesn't clip them: the corner circle's run at a quarter of
++// the bar's thickness, where tall icons' tops sit. 0 for square corners or a
++// bar whose quarter height is past the corner.
 +function cornerInset(radius, thickness, scale) {
 +  var r = Number(radius)
 +  var s = Number(scale) > 0 ? Number(scale) : 1
-+  var depth = Number(thickness) * s / 2
++  var depth = Number(thickness) * s / 4
 +  if (!(r > 0) || !(Number(thickness) > 0) || depth >= r) return 0
 +  return Math.ceil((r - Math.sqrt(r * r - (r - depth) * (r - depth))) / s)
 +}
@@ -126,7 +127,7 @@ index 8d3c9d6..784f20b 100644
  // The bar's thickness on the screen with this name, from the sizes a bar
  // publishes by screen name, or `fallback` (its configured size) for a screen
  // it has none for.
-@@ -693,6 +705,7 @@ if (typeof module !== "undefined") {
+@@ -693,6 +706,7 @@ if (typeof module !== "undefined") {
      peeksAt: peeksAt,
      fullscreenOn: fullscreenOn,
      centerBesideRight: centerBesideRight,
@@ -135,7 +136,7 @@ index 8d3c9d6..784f20b 100644
      cutoutTop: cutoutTop,
      isDrawnSlot: isDrawnSlot,
 diff --git a/test/shell.d/bar-notch-test.sh b/test/shell.d/bar-notch-test.sh
-index bcedeb0..60d632b 100644
+index bcedeb0..8ea99ea 100644
 --- a/test/shell.d/bar-notch-test.sh
 +++ b/test/shell.d/bar-notch-test.sh
 @@ -139,4 +139,14 @@ const stateBarSizeFor = new Function('barSizes', 'barSize', apiFor[1], apiFor[2]
@@ -144,12 +145,12 @@ index bcedeb0..60d632b 100644
  assertEqual(stateBarSizeFor({}, 26, 'eDP-1'), 26, 'a plugin under a bar without per-screen sizes gets barSize')
 +
 +// A rounded corner's physical radius becomes a logical inset for the bar's side widgets: the corner circle's
-+// run at the bar's mid-height, so it shrinks with the scale and is 0 without a radius.
-+assertEqual(bar.cornerInset(142, 26, 2), 31, 'a 142 px corner insets a 26 px bar by 31 px at scale 2')
-+assertEqual(bar.cornerInset(142, 26, 1), 83, 'the same corner insets it by 83 px at scale 1')
-+assertEqual(bar.cornerInset(142, 26, 0), 83, 'a missing scale reads as 1')
++// run a quarter of the way down the bar, so it shrinks with the scale and is 0 without a radius.
++assertEqual(bar.cornerInset(142, 26, 2), 42, 'a 142 px corner insets a 26 px bar by 42 px at scale 2')
++assertEqual(bar.cornerInset(142, 26, 1), 100, 'the same corner insets it by 100 px at scale 1')
++assertEqual(bar.cornerInset(142, 26, 0), 100, 'a missing scale reads as 1')
 +for (const none of [0, -5, undefined, null, 'x'])
 +  assertEqual(bar.cornerInset(none, 26, 2), 0, `square corners (${none}) need no inset`)
 +assertEqual(bar.cornerInset(142, 0, 2), 0, 'a bar without thickness needs no inset')
-+assertEqual(bar.cornerInset(20, 26, 2), 0, 'a bar thicker than the corner needs no inset')
++assertEqual(bar.cornerInset(10, 26, 2), 0, 'a corner smaller than the bar\'s quarter height needs no inset')
  JS
