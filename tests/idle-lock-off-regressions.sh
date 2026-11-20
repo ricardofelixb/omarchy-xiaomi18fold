@@ -54,6 +54,11 @@ grep -q '"d": 12345678901234567890' "$cfg"
 grep -q '"version": 1.0' "$cfg"
 [[ $(jq -r '.idle.lock, .s' "$cfg") == $'0\né "x"' ]]
 python3 -I -c 'import json,sys; json.load(open(sys.argv[1]), parse_constant=lambda c: sys.exit(1))' "$cfg"
+# A lone surrogate escape is valid JSON but cannot be written as UTF-8; it stays escaped.
+printf '{"version":1,"custom":"\\ud800","idle":{"lock":300}}\n' > "$cfg"
+run
+grep -q '"custom": "\\ud800"' "$cfg"
+python3 -I -c 'import json,sys; sys.exit(json.load(open(sys.argv[1]))["idle"]["lock"])' "$cfg"
 printf '[]\n' > "$cfg"
 skipped
 rm "$cfg"

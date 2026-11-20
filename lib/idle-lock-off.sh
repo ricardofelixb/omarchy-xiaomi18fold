@@ -54,7 +54,7 @@ if 'version' in cfg and not (isinstance(cfg['version'], Number) and cfg['version
 cfg = {'version': 1, **cfg}
 idle = cfg.get('idle')
 cfg['idle'] = {**(idle if isinstance(idle, dict) else {}), 'lock': 0}
-text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
+text = json.dumps(cfg, indent=2) + '\n'
 text = re.sub('"' + marker + '([^"]*)"', r'\1', text)
 fd, tmp = tempfile.mkstemp(prefix=os.path.basename(path) + '.', dir=os.path.dirname(path))
 try:
