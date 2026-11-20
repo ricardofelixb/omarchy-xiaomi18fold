@@ -1,0 +1,50 @@
+From 18c28dd715f83d5a002a9d3b7519c9c1d5af3966 Mon Sep 17 00:00:00 2001
+From: omarchy-alarm-nspawn <noreply@example.com>
+Date: Fri, 20 Nov 2026 01:33:40 +0000
+Subject: [PATCH] Let a touch drag scroll the app launcher
+
+Every launcher cell kept the grid from taking a press for a scroll, so a finger dragging over the apps picked one up instead and dropped it, closing the launcher, and touch could never scroll.
+
+Only a mouse press keeps the grid off now. A touch scrolls it, and picks an app up only after being held still.
+---
+ shell/plugins/dock/AppGrid.qml | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/shell/plugins/dock/AppGrid.qml b/shell/plugins/dock/AppGrid.qml
+index 53c771d..fd2b787 100644
+--- a/shell/plugins/dock/AppGrid.qml
++++ b/shell/plugins/dock/AppGrid.qml
+@@ -323,6 +323,9 @@ Item {
+               property point pressPoint
+               // A press that wanders is a drag in the making, not a click.
+               property bool moved: false
++              // Whether this press may pick the app up. A mouse press may at once;
++              // a touch scrolls the grid instead, until it has been held still.
++              property bool armed: false
+ 
+               width: root.cellWidth
+               height: root.cellHeight
+@@ -375,15 +378,17 @@ Item {
+                 hoverEnabled: true
+                 cursorShape: Qt.PointingHandCursor
+                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+-                // The grid would otherwise take a dragging press for a scroll.
+-                preventStealing: true
++                // An armed press keeps the grid from taking its drag for a scroll.
++                preventStealing: cell.armed
+                 onContainsMouseChanged: if (containsMouse && !root.dragging) root.selectedIndex = cell.index
+                 onPressed: function(event) {
+                   cell.moved = false
++                  cell.armed = event.source === Qt.MouseEventNotSynthesized
+                   cell.pressPoint = Qt.point(event.x, event.y)
+                 }
++                onPressAndHold: cell.armed = true
+                 onPositionChanged: function(event) {
+-                  if (!(pressedButtons & Qt.LeftButton)) return
++                  if (!(pressedButtons & Qt.LeftButton) || !cell.armed) return
+                   if (!cell.moved && Math.hypot(event.x - cell.pressPoint.x, event.y - cell.pressPoint.y) > Style.space(4)) cell.moved = true
+                   if (cell.moved) root.dragTo(cell.modelData, cell.mapToItem(panel.contentItem, event.x, event.y))
+                 }
+-- 
+2.47.3
+

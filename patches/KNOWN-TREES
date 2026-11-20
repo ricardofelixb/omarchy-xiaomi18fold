@@ -15,3 +15,4 @@ c45ef1b2a784f80c808b8c015cb942636bbd8ff1 0005-programs-only-tool-provisioning.pa
 f03f0b7a32c4decebe75ab10e0b198fb13272fa8 0006-preserve-installer-home-layout.patch@261be25
 7be8f8895508c25c4b29850d03f60b7fd81a9ec2 0007-route-update-to-fold-omarchy-update.patch@261be25
 cb06549f60a583fa2397a629221e0d675102309e 0008-bar-clear-of-rounded-corners.patch@261be25
+150981e85cb9441ed84698e637ead1b51af0048d 0009-touch-drag-scrolls-app-launcher.patch@261be25

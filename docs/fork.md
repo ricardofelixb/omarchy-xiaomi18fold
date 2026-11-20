@@ -116,8 +116,17 @@ adds to upstream files.
 - **Where:** `patches/0008-bar-clear-of-rounded-corners.patch`, `patches/KNOWN-TREES`, `lib/config-overlay.sh`, `tests/fold-omarchy-update-regressions.sh`.
 - **Drop when:** upstream ships a corner or side-inset setting for the bar and the Fold uses it.
 
+### A touch drag scrolls the app launcher
+
+- **Kind:** 1, useful to anyone with a touchscreen (patch `0009`). **Upstream candidate.**
+- **Bug:** a finger dragging over the app launcher (`shell/plugins/dock/AppGrid.qml`, the dock's app grid) never scrolled it: every cell set `preventStealing`, so the drag picked the app up and dropping it closed the launcher.
+- **Fix:** patch `0009` sets `preventStealing` only for a mouse press (`event.source`), so touch drags scroll the grid. A touch picks an app up only after it is held still (`onPressAndHold`). Taps still launch, and mouse hover and drag are unchanged.
+- **Where:** `patches/0009-touch-drag-scrolls-app-launcher.patch`, `patches/KNOWN-TREES`.
+- **Drop when:** upstream lets a touch scroll the app grid.
+
 ## Quick checks
 
+- `bash tests/run.sh --check patches`
 - `bash tests/fold-omarchy-update-regressions.sh`; `bash tests/omarchy-packaged-helpers-regressions.sh`
 - `bash tests/omarchy-app-icons-regressions.sh`
 - `bash tests/fold-drawer-regressions.sh`
