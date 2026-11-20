@@ -216,7 +216,9 @@ install_system_helpers() {
   omarchy_install_packaged_helpers ||
     echo 'FAILED (nonfatal) packaged Omarchy helpers: theme changes may report "Theme not applied everywhere"; rerun to retry.' >&2
 }
-install_bundled_app_icons() { omarchy_install_app_icons; }
+install_bundled_app_icons() {
+  omarchy_install_app_icons || echo 'WARNING (nonfatal): some Omarchy app icons could not be installed; rerun to retry.' >&2
+}
 seed_omarchy_config() {
   mkdir -p "$HOME/.config"
   # Seed missing defaults while retaining pre-existing user files.
