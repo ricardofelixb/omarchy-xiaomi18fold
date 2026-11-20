@@ -261,7 +261,8 @@ seed_omarchy_config() {
   done
   # shellcheck source=../lib/omarchy-move.sh
   source "$ROOT/lib/omarchy-move.sh"
-  omarchy_seed_home_defaults
+  omarchy_seed_home_defaults ||
+    echo 'FAILED (nonfatal) Omarchy home defaults: the screensaver may print "Error reading input file"; rerun to retry.' >&2
 }
 configure_gtk_im_module() { bash "$ROOT/lib/gtk-im-module.sh"; }
 configure_bashrc() {

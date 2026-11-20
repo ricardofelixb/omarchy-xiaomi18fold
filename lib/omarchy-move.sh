@@ -143,11 +143,16 @@ omarchy_seed_home_defaults() {
   for ext in localsend.py transcode.py; do
     [[ ! -f $root/default/nautilus-python/extensions/$ext ]] || cp --update=none -- "$root/default/nautilus-python/extensions/$ext" "$ext_dir/" || failed=1
   done
-  mkdir -p "$HOME/Downloads" "$HOME/Pictures" "$HOME/Videos" "$HOME/Projects" "$HOME/.config/gtk-3.0" || failed=1
+  mkdir -p "$HOME/.config/gtk-3.0" || failed=1
   touch "$HOME/.config/gtk-3.0/bookmarks" || failed=1
   for dir in Downloads Projects Pictures Videos; do
+    # A user file with a folder's name stays as it is (as lib/home-layout.sh does); the folder is skipped.
+    [[ -e $HOME/$dir || -L $HOME/$dir ]] || mkdir -p "$HOME/$dir" || failed=1
     bookmark="file://$HOME/$dir $dir"
-    grep -qxF "$bookmark" "$HOME/.config/gtk-3.0/bookmarks" || echo "$bookmark" >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
+    grep -qxF "$bookmark" "$HOME/.config/gtk-3.0/bookmarks" && continue
+    # An existing last line without a newline must not swallow the new entry.
+    [[ -z $(tail -c1 "$HOME/.config/gtk-3.0/bookmarks") ]] || echo >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
+    echo "$bookmark" >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
   done
   if [[ -d $skill/omarchy ]]; then
     for dir in .agents .claude .codex .pi/agent; do

@@ -74,6 +74,14 @@ echo mine > "$work/home/.local/share/nautilus-python/extensions/localsend.py"; s
 bm=$work/home/.config/gtk-3.0/bookmarks
 [[ -d $work/home/Projects ]] && grep -qxF "file://$work/home/Projects Projects" "$bm" || fail 'Projects folder or bookmark missing'
 seed; [[ $(grep -c Projects "$bm") == 1 ]] || fail 'bookmark written twice'
+# A user file named Projects is kept and does not fail the seeding; a bookmarks file without a final newline
+# keeps its last entry intact.
+rm -rf "${work:?}/home/Projects" "${work:?}/home/.config/gtk-3.0"; echo mine > "$work/home/Projects"; mkdir -p "$work/home/.config/gtk-3.0"
+printf 'file:///srv/data Data' > "$bm"
+seed || fail 'an existing Projects file must not fail the seeding'
+[[ $(cat "$work/home/Projects") == mine ]] || fail 'the Projects file was replaced'
+grep -qxF 'file:///srv/data Data' "$bm" && grep -qxF "file://$work/home/Downloads Downloads" "$bm" || fail "bookmark joined to a line without a newline: $(cat "$bm")"
+rm -f "$work/home/Projects"
 # A failed copy is reported even when later steps succeed (cp stub fails for screensaver.txt).
 rm -rf "${b:?}"; mkdir -p "$work/cpbin"
 printf '#!/bin/bash\n[[ ${*: -1} == *screensaver.txt ]] && exit 1\nexec /usr/bin/cp "$@"\n' > "$work/cpbin/cp"; chmod +x "$work/cpbin/cp"
