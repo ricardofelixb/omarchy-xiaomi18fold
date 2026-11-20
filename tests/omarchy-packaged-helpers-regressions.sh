@@ -92,10 +92,12 @@ rm -f "$work/home/.XCompose"; seed
 grep -q 'include "/usr/share/omarchy/default/xcompose"' "$work/home/.XCompose" || fail 'the XCompose file was not created'
 echo custom > "$work/home/.XCompose"; seed
 [[ $(cat "$work/home/.XCompose") == custom ]] || fail 'an existing XCompose file was replaced by the seeding'
-mkdir -p "$work/provbin"; printf '#!/bin/bash\necho upstream > "$HOME/.XCompose"\n' > "$work/provbin/omarchy-provision-user"; chmod +x "$work/provbin/omarchy-provision-user"
+mkdir -p "$work/provbin"; printf '#!/bin/bash\necho upstream | tee "$HOME/.XCompose" >/dev/null\n' > "$work/provbin/omarchy-provision-user"; chmod +x "$work/provbin/omarchy-provision-user"
 ( HOME=$work/home OMARCHY_PATH=$work; mkdir -p "$work/bin"; cp "$work/provbin/omarchy-provision-user" "$work/bin/"
   eval "$(sed -n '/^provision_user_headless() {/,/^}/p' "$ROOT/container/install.sh")"; provision_user_headless )
 [[ $(cat "$work/home/.XCompose") == custom ]] || fail 'the installer provisioning replaced an existing XCompose file'
+rm -f "$work/home/.XCompose"; ( HOME=$work/home OMARCHY_PATH=$work; eval "$(sed -n '/^provision_user_headless() {/,/^}/p' "$ROOT/container/install.sh")"; provision_user_headless )
+[[ $(cat "$work/home/.XCompose") == upstream ]] || fail 'provisioning must still write a missing XCompose file'
 
 # 4. The installer and the updater both call it.
 grep -q 'omarchy_install_packaged_helpers' <(sed -n '/^install_system_helpers() {/,/^}/p' "$ROOT/container/install.sh") || fail 'installer does not install the helpers'

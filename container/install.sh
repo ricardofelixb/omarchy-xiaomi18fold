@@ -286,16 +286,17 @@ BASHRC
 provision_user_headless() {
   # No graphical session or host dconf access; no copied identity or mise secrets.
   # --first-install marks shipped migrations done (bare-metal steps are wrong in nspawn).
-  # Its install/user/xcompose.sh rewrites ~/.XCompose unconditionally; keep the user's own file.
-  local compose_backup='' status=0
-  if [[ -e $HOME/.XCompose ]]; then
-    compose_backup=$(mktemp) && cp -- "$HOME/.XCompose" "$compose_backup" || return 1
-  fi
-  env -u DISPLAY -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
+  # Its install/user/xcompose.sh does `tee ~/.XCompose` unconditionally. A tee in front on PATH skips that one
+  # write when the user already has the file, so it is never touched (nothing to restore after an interruption).
+  local shim status=0
+  shim=$(mktemp -d) || return 1
+  printf '#!/bin/bash\nfor a; do [[ $a == "$HOME/.XCompose" && -e $a ]] && { cat >/dev/null; exit 0; }; done\nexec /usr/bin/tee "$@"\n' > "$shim/tee"
+  chmod +x "$shim/tee"
+  env -u DISPLAY -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE PATH="$shim:$PATH" \
     OMARCHY_SETUP_CONTEXT=provision-owner OMARCHY_THEME_HEADLESS=1 OMARCHY_PROGRAMS_ONLY=1 \
     OMARCHY_USER_NAME='' OMARCHY_USER_EMAIL='' GSETTINGS_BACKEND=keyfile \
     "$OMARCHY_PATH/bin/omarchy-provision-user" --first-install || status=$?
-  [[ -z $compose_backup ]] || { cp -- "$compose_backup" "$HOME/.XCompose"; rm -f "$compose_backup"; }
+  rm -rf "$shim"
   return "$status"
 }
 configure_input_and_fonts() {
