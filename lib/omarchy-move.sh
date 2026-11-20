@@ -128,22 +128,32 @@ omarchy_install_app_icons() {
 }
 
 # Omarchy's package seeds these through /etc/skel and its quattro upgrade creates them once; neither runs here,
-# so a fresh install or a 4.0.4 -> 4.5 move lacked them (the screensaver looped "Error reading input file").
-# Mirrors that upgrade's copy steps, but only for what is missing: nothing the user has is overwritten.
-# Skipped on purpose: the Downloads/Pictures/Videos/Projects folders, XDG settings and GTK bookmarks (the
-# fork's home-layout and omarchy-provision-user already make them), hypr toggles/flags.lua (Hyprland copes
-# without it), and everything else the upgrade does (Limine, systemd --user, keyring, hardware).
+# so a fresh install or a 4.0.4 -> 4.5 move lacked them (the screensaver looped "Error reading input file";
+# the Projects bookmark pointed at a folder nobody made). Mirrors that upgrade's steps, but only for what is
+# missing: nothing the user has is overwritten. Returns 1 if any step failed (it still tries the rest).
+# Skipped on purpose: the XDG settings and Downloads/Pictures/Videos handling the fork's home-layout and
+# omarchy-provision-user already do, hypr toggles/flags.lua (Hyprland copes without it), and everything else
+# the upgrade does (Limine, systemd --user, keyring, hardware).
 omarchy_seed_home_defaults() {
-  local root=$OMARCHY_PATH ext dir skill=$OMARCHY_PATH/default/agents/skills
-  mkdir -p "$HOME/.config/omarchy/branding" "$HOME/.local/share/nautilus-python/extensions"
-  [[ ! -f $root/icon.txt ]] || cp --update=none -- "$root/icon.txt" "$HOME/.config/omarchy/branding/about.txt"
-  [[ ! -f $root/logo.txt ]] || cp --update=none -- "$root/logo.txt" "$HOME/.config/omarchy/branding/screensaver.txt"
+  local root=$OMARCHY_PATH ext dir bookmark failed=0 skill=$OMARCHY_PATH/default/agents/skills
+  local branding=$HOME/.config/omarchy/branding ext_dir=$HOME/.local/share/nautilus-python/extensions
+  mkdir -p "$branding" "$ext_dir" || failed=1
+  [[ ! -f $root/icon.txt ]] || cp --update=none -- "$root/icon.txt" "$branding/about.txt" || failed=1
+  [[ ! -f $root/logo.txt ]] || cp --update=none -- "$root/logo.txt" "$branding/screensaver.txt" || failed=1
   for ext in localsend.py transcode.py; do
-    [[ ! -f $root/default/nautilus-python/extensions/$ext ]] || cp --update=none -- "$root/default/nautilus-python/extensions/$ext" "$HOME/.local/share/nautilus-python/extensions/"
+    [[ ! -f $root/default/nautilus-python/extensions/$ext ]] || cp --update=none -- "$root/default/nautilus-python/extensions/$ext" "$ext_dir/" || failed=1
   done
-  [[ -d $skill/omarchy ]] || return 0
-  for dir in .agents .claude .codex .pi/agent; do
-    mkdir -p "$HOME/$dir/skills"
-    [[ -e $HOME/$dir/skills/omarchy || -L $HOME/$dir/skills/omarchy ]] || ln -s "$skill/omarchy" "$HOME/$dir/skills/omarchy"
+  mkdir -p "$HOME/Downloads" "$HOME/Pictures" "$HOME/Videos" "$HOME/Projects" "$HOME/.config/gtk-3.0" || failed=1
+  touch "$HOME/.config/gtk-3.0/bookmarks" || failed=1
+  for dir in Downloads Projects Pictures Videos; do
+    bookmark="file://$HOME/$dir $dir"
+    grep -qxF "$bookmark" "$HOME/.config/gtk-3.0/bookmarks" || echo "$bookmark" >> "$HOME/.config/gtk-3.0/bookmarks" || failed=1
   done
+  if [[ -d $skill/omarchy ]]; then
+    for dir in .agents .claude .codex .pi/agent; do
+      mkdir -p "$HOME/$dir/skills" || { failed=1; continue; }
+      [[ -e $HOME/$dir/skills/omarchy || -L $HOME/$dir/skills/omarchy ]] || ln -s "$skill/omarchy" "$HOME/$dir/skills/omarchy" || failed=1
+    done
+  fi
+  return "$failed"
 }

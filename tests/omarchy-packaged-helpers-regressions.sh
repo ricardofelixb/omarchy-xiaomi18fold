@@ -3,7 +3,8 @@
 # keeps at /usr/bin are installed as root-owned copies with their sudoers rules, a rule visudo rejects is
 # not installed, a missing helper is reported, and the installer and updater both call it. Also
 # omarchy_seed_home_defaults: the one-time home files Omarchy's quattro upgrade makes (screensaver and
-# about branding, nautilus extensions, agent skill link) are created when missing and never overwritten.
+# about branding, nautilus extensions, Projects folder and bookmarks, agent skill link) are created when
+# missing and never overwritten, and a failed copy makes the function fail.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 work=$(mktemp -d)
@@ -69,6 +70,14 @@ rm -rf "$b"; seed
 [[ -f $work/home/.local/share/nautilus-python/extensions/transcode.py && -L $work/home/.agents/skills/omarchy ]] || fail 'nautilus extensions or the agent skill link missing'
 echo mine > "$work/home/.local/share/nautilus-python/extensions/localsend.py"; seed
 [[ $(cat "$work/home/.local/share/nautilus-python/extensions/localsend.py") == mine ]] || fail 'an existing nautilus extension was overwritten'
+# A bookmark and folder for Projects are made, an existing bookmark is not duplicated, an existing folder is kept.
+bm=$work/home/.config/gtk-3.0/bookmarks
+[[ -d $work/home/Projects ]] && grep -qxF "file://$work/home/Projects Projects" "$bm" || fail 'Projects folder or bookmark missing'
+seed; [[ $(grep -c Projects "$bm") == 1 ]] || fail 'bookmark written twice'
+# A failed copy is reported even when later steps succeed (cp stub fails for screensaver.txt).
+rm -rf "${b:?}"; mkdir -p "$work/cpbin"
+printf '#!/bin/bash\n[[ ${*: -1} == *screensaver.txt ]] && exit 1\nexec /usr/bin/cp "$@"\n' > "$work/cpbin/cp"; chmod +x "$work/cpbin/cp"
+( PATH=$work/cpbin:$PATH; seed ) && fail 'a failed screensaver.txt copy must fail the seeding'
 
 # 4. The installer and the updater both call it.
 grep -q 'omarchy_install_packaged_helpers' <(sed -n '/^install_system_helpers() {/,/^}/p' "$ROOT/container/install.sh") || fail 'installer does not install the helpers'

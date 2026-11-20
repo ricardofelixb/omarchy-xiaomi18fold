@@ -136,7 +136,7 @@ adds to upstream files.
 
 - **Kind:** 1, useful to anyone running Omarchy from a git checkout. **Upstream candidate.**
 - **Bug:** the Omarchy screensaver printed "Error reading input file" forever: `~/.config/omarchy/branding/` is made by the package (`/etc/skel`) and `omarchy-upgrade-to-quattro`, neither of which the fork runs.
-- **Fix:** `omarchy_seed_home_defaults` creates the missing branding files, nautilus-python extensions and agent skill link, never overwriting; called by `container/install.sh` and `fold-omarchy-update`. Skipped: the quattro steps for XDG folders, bookmarks and flags.lua (already covered or harmless here) and its Limine, systemd `--user`, keyring and hardware steps.
+- **Fix:** `omarchy_seed_home_defaults` creates the missing branding files, nautilus-python extensions, `~/Projects` with the GTK bookmarks and agent skill link, never overwriting, and fails if a copy fails; called by `container/install.sh` and `fold-omarchy-update`. Skipped: the quattro steps for XDG settings and flags.lua (already covered or harmless here) and its Limine, systemd `--user`, keyring and hardware steps.
 - **Where:** `lib/omarchy-move.sh`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/omarchy-packaged-helpers-regressions.sh`.
 - **Drop when:** upstream ships an ARM package set (its `/etc/skel` seeds these).
 
