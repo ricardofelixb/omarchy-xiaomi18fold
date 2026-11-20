@@ -39,6 +39,8 @@ vendor/README\.md:(3|25):(base64-blob|hex-blob)
 lib/network\.sh:.*:ipv4-address
 tests/installer-regressions\.sh:.*:ipv4-address
 tests/china-downloads-inside\.sh:.*:ipv4-address
+# Tailscale's public MagicDNS address, named in the fork notes
+docs/fork\.md:.*:ipv4-address
 
 # Public pinned SHA256 release-asset digests, verified by tool-program regressions
 

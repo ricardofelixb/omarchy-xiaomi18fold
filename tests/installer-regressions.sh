@@ -140,6 +140,61 @@ if network_resolv_config "$r" "$work/host-empty" "$work/no-such-uplink" 2>/dev/n
 fi
 pass 'the mainland fallback is CN-only; global mode with no usable server fails'
 
+# --- Tailscale on the host: MagicDNS first, existing servers kept, short timeout ----------
+# The tool dir has only what network_resolv_config needs, so "absent" is really absent.
+bin=$work/tsbin; mkdir -p "$bin"
+for t in awk grep mkdir rm chmod sed head timeout cat; do ln -s "$(command -v "$t")" "$bin/$t"; done
+printf '#!/bin/sh\necho "{\\"MagicDNSSuffix\\": \\"tail1234.ts.net\\"}"\n' > "$work/tailscale-stub"
+chmod +x "$work/tailscale-stub"
+for m in global cn; do
+  MIRROR=$m; network_init >/dev/null
+  r=$work/ts-absent-$m; mkdir -p "$r/etc"
+  ( PATH=$bin; network_resolv_config "$r" "$work/host-real" "$work/uplink" )
+  assert_lacks "$r/etc/resolv.conf" 100.100.100.100
+  assert_lacks "$r/etc/resolv.conf" timeout:2
+  r=$work/ts-present-$m; mkdir -p "$r/etc"
+  ln -sf "$work/tailscale-stub" "$bin/tailscale"
+  ( PATH=$bin; network_resolv_config "$r" "$work/host-real" "$work/uplink" )
+  rm -f "$bin/tailscale"
+  [[ $(nameservers "$r/etc/resolv.conf" | head -n1) == 100.100.100.100 ]] || fail "$m: MagicDNS must be first"
+  assert_has "$r/etc/resolv.conf" 9.9.9.9
+  assert_has "$r/etc/resolv.conf" 'options timeout:2'
+  assert_has "$r/etc/resolv.conf" 'search tail1234.ts.net'
+done
+pass 'Tailscale on the host puts 100.100.100.100 first (global and CN), keeps other servers, adds timeout and search'
+
+# glibc uses 3 nameservers at most: MagicDNS plus the first two host servers.
+r=$work/ts-three; mkdir -p "$r/etc"
+printf 'nameserver 9.9.9.9\nnameserver 8.8.4.4\nnameserver 4.4.4.4\n' > "$work/host-three"
+MIRROR=global; network_init >/dev/null
+ln -sf "$work/tailscale-stub" "$bin/tailscale"
+( PATH=$bin; network_resolv_config "$r" "$work/host-three" "$work/uplink" )
+rm -f "$bin/tailscale"
+[[ $(nameservers "$r/etc/resolv.conf" | tr '\n' ' ') == '100.100.100.100 9.9.9.9 8.8.4.4 ' ]] || fail 'MagicDNS plus two host servers only'
+r=$work/ts-dup; mkdir -p "$r/etc"
+printf 'nameserver 100.100.100.100\nnameserver 9.9.9.9\nnameserver 8.8.4.4\nnameserver 4.4.4.4\n' > "$work/host-dup"
+ln -sf "$work/tailscale-stub" "$bin/tailscale"
+( PATH=$bin; network_resolv_config "$r" "$work/host-dup" "$work/uplink" )
+rm -f "$bin/tailscale"
+[[ $(nameservers "$r/etc/resolv.conf" | tr '\n' ' ') == '100.100.100.100 9.9.9.9 8.8.4.4 ' ]] || fail 'a host-listed MagicDNS must not be written twice'
+r=$work/ts-three-off; mkdir -p "$r/etc"
+( PATH=$bin; network_resolv_config "$r" "$work/host-three" "$work/uplink" )
+[[ $(nameservers "$r/etc/resolv.conf" | wc -l) == 3 ]] || fail 'without tailscale all host servers are kept'
+pass 'with Tailscale the file lists at most three nameservers (MagicDNS + first two)'
+
+# Inside Arch there is no tailscale: the CN rewrite keeps the MagicDNS entry and search suffix.
+r=$work/ts-keep; mkdir -p "$r/etc"
+printf 'nameserver 100.100.100.100\nnameserver 1.1.1.1\nsearch tail1234.ts.net\noptions timeout:2\n' > "$work/existing-resolv"
+MIRROR=cn; network_init >/dev/null
+( PATH=$bin; network_resolv_config "$r" /dev/null /dev/null "$work/existing-resolv" )
+[[ $(nameservers "$r/etc/resolv.conf" | tr '\n' ' ') == '100.100.100.100 223.5.5.5 119.29.29.29 ' ]] || fail 'CN rewrite must keep MagicDNS first'
+assert_has "$r/etc/resolv.conf" 'search tail1234.ts.net'
+assert_has "$r/etc/resolv.conf" 'options timeout:2'
+r=$work/ts-nokeep; mkdir -p "$r/etc"
+( PATH=$bin; network_resolv_config "$r" /dev/null /dev/null "$work/uplink" )
+assert_lacks "$r/etc/resolv.conf" 100.100.100.100
+pass 'the CN rewrite keeps MagicDNS from the file it replaces, and adds none otherwise'
+
 # --- repeat config is idempotent ------------------------------------------------------
 r=$work/r7; mkdir -p "$r/etc"
 MIRROR=cn; network_init >/dev/null
@@ -329,6 +384,16 @@ assert_has "$rd/etc/resolv.conf" 223.5.5.5
 assert_has "$rd/etc/resolv.conf" 119.29.29.29
 assert_probe_host
 pass 'failed CN probe writes 223.5.5.5/119.29.29.29 and retries the probe'
+
+# --- the retry rewrite keeps MagicDNS first (tailscale on the host) --------------------
+reset_nspawn fail-once
+network_resolv_config "$rd" "$work/host-real" "$work/uplink"
+ln -sf "$work/tailscale-stub" "$bin/tailscale"
+( PATH=$bin:$PATH; network_container_dns "$rd" </dev/null 2>/dev/null ) || fail 'retry with tailscale must still succeed'
+rm -f "$bin/tailscale"
+[[ $(nameservers "$rd/etc/resolv.conf" | tr '\n' ' ') == '100.100.100.100 223.5.5.5 119.29.29.29 ' ]] || fail 'retry rewrite must keep MagicDNS first'
+assert_has "$rd/etc/resolv.conf" 'options timeout:2'
+pass 'the CN retry rewrite keeps MagicDNS, search and timeout'
 
 # --- every probe failing: the function must fail -------------------------------------
 reset_nspawn fail
