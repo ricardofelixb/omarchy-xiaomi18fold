@@ -105,12 +105,12 @@ echo $XMODIFIERS      # 应为 @im=fcitx
 
 **原因**: 用户密码处于锁定状态（`passwd -S` 显示 `L`）。
 
-**解决**: 在解锁前先设置密码：
+**解决**: 安装器已在 `~/.config/omarchy/shell.json` 中设置 `.idle.lock = 0`，关闭 Omarchy 空闲锁屏（手机由 Android 自身的锁屏保护）。若要重新启用，先设置密码：
 ```bash
 passwd
 ```
 
-然后通过 `Super+Ctrl+I` 或运行 `omarchy toggle idle` 恢复空闲锁屏。
+再把 `.idle.lock` 改回 `300`。
 
 ## 通知和托盘图标异常
 
