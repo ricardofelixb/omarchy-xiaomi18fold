@@ -128,7 +128,7 @@ adds to upstream files.
 
 - **Kind:** 1, useful to anyone. **Upstream candidate** (the `~/Projects` half; Omarchy's `bin/omarchy-provision-user` should `mkdir` Projects like `omarchy-upgrade-to-quattro` does).
 - **Bug:** Files showed a "Projects" bookmark that opened "Unable to find" the Projects folder, because Omarchy 4.5.0 bookmarks it but never creates it. Separately, AUR Go packages built from source filled `~/go` (969 MB of module cache); stock Omarchy gets yay prebuilt.
-- **Fix:** `lib/home-layout.sh` also creates `~/Projects`. `GOPATH` is `~/.cache/go` in `config/pacman/makepkg.conf` (yay's makepkg runs inherit it), in `container/install.sh`'s environment and for `fold-omarchy-update`'s `yay -Sua`. An existing `~/go` is left alone (it can hold personal files); delete its `pkg/mod` by hand to reclaim the space.
+- **Fix:** `lib/home-layout.sh` also creates `~/Projects`. `GOPATH` is `~/.cache/go` in `config/pacman/makepkg.conf` (yay's makepkg runs inherit it; a rerun of `container/install.sh` refreshes that block in an existing install) and for `fold-omarchy-update`'s `yay -Sua`. An existing `~/go` is left alone (it can hold personal files); delete its `pkg/mod` by hand to reclaim the space.
 - **Where:** `lib/home-layout.sh`, `config/pacman/makepkg.conf`, `container/install.sh`, `container/bin/fold-omarchy-update`, `tests/home-layout-regressions.sh`.
 - **Drop when:** upstream Omarchy creates `~/Projects` (first half); the `GOPATH` part stays unless upstream builds Go packages elsewhere.
 

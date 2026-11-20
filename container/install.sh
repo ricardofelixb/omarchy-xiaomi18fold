@@ -55,7 +55,6 @@ validate_environment() {
   sudo -v
   mkdir -p "$HOME/.cache/tmp" "$HOME/.cache/makepkg" "$HOME/.local/bin" "$HOME/.local/state/omarchy-alarm"
   export TMPDIR="$HOME/.cache/tmp"
-  export GOPATH="$HOME/.cache/go" # yay's makepkg runs build Go packages here, not in ~/go
   export OMARCHY_PATH="$HOME/.local/share/omarchy"
   export PATH="$OMARCHY_PATH/bin:$HOME/.local/bin:$PATH"
 }
@@ -115,7 +114,15 @@ configure_build_directories() {
   mkdir -p "$HOME/.config/pacman" "$HOME/.cache/makepkg" "$HOME/.cache/tmp"
   local file="$HOME/.config/pacman/makepkg.conf"
   touch "$file"
-  if ! grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
+  if grep -q '^# BEGIN omarchy-alarm build$' "$file"; then
+    # Refresh the managed block in place so settings added later (GOPATH) reach existing installs.
+    local updated
+    updated=$(awk -v block="$ROOT/config/pacman/makepkg.conf" '
+      /^# BEGIN omarchy-alarm build$/ { print; while ((getline line < block) > 0) print line; skip = 1; next }
+      /^# END omarchy-alarm build$/ { skip = 0 }
+      !skip' "$file")
+    printf '%s\n' "$updated" > "$file"
+  else
     {
       printf '\n# BEGIN omarchy-alarm build\n'
       cat "$ROOT/config/pacman/makepkg.conf"
