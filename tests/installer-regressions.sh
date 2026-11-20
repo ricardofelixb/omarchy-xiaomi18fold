@@ -625,7 +625,12 @@ bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'a second mask_host_pulseaudio run fa
 rm "$ph/home/.config/systemd/user/pulseaudio.socket"; printf '[Socket]\n' > "$ph/home/.config/systemd/user/pulseaudio.socket"
 bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a user-made unit'
 [[ $(readlink "$ph/home/.config/systemd/user/pulseaudio.socket") == /dev/null ]] || fail 'a user-made pulseaudio.socket was left active'
-cat "$ph"/home/.config/systemd/user/pulseaudio.socket.fold-bak.* | grep -qx '\[Socket\]' || fail 'the user-made pulseaudio.socket was not backed up'
+grep -qx '\[Socket\]' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.1" || fail 'the user-made pulseaudio.socket was not backed up'
+# A unit restored and masked again keeps the earlier backup (names never collide).
+rm "$ph/home/.config/systemd/user/pulseaudio.socket"; printf '[Socket]\nListenStream=second\n' > "$ph/home/.config/systemd/user/pulseaudio.socket"
+bash "$ph/run.sh" > "$ph/log" 2>&1 || fail 'mask_host_pulseaudio failed with a second user-made unit'
+grep -qx '\[Socket\]' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.1" || fail 'a second backup replaced the first'
+grep -qx 'ListenStream=second' "$ph/home/.config/systemd/user/pulseaudio.socket.fold-bak.2" || fail 'the second user-made unit was not backed up'
 assert_has "$ROOT/host/install.sh" '/dev/input/event* /dev/snd/*; do'
 pass "host PulseAudio is masked (rerun-safe, user units backed up then masked) and /dev/snd's group reaches the container user"
 

@@ -643,13 +643,16 @@ install_fold_host_helpers
 # The container's PipeWire owns the sound card, so Debian's user PulseAudio must not start:
 # it would hold the card (and /run/user/UID/pulse/native), then crash-loop on it.
 mask_host_pulseaudio() {
-  local dir=$T_HOME/.config/systemd/user u
+  local dir=$T_HOME/.config/systemd/user u n
   ensure_user_dir "$T_HOME/.config"; ensure_user_dir "$T_HOME/.config/systemd"; ensure_user_dir "$dir"
   for u in pulseaudio.service pulseaudio.socket; do
     # A real unit file would still start PulseAudio: keep a copy beside it, then mask.
     if [[ -e $dir/$u && ! -L $dir/$u ]]; then
-      run runuser -u "$TARGET_USER" -- mv -- "$dir/$u" "$dir/$u.fold-bak.$(date +%s)" || { warn "could not back up $dir/$u, left it unmasked"; continue; }
-      note "backed up your own $dir/$u as $u.fold-bak.*, then masked it"
+      n=1; while [[ -e $dir/$u.fold-bak.$n || -L $dir/$u.fold-bak.$n ]]; do n=$((n + 1)); done
+      # -n: never replace a backup made meanwhile; the unit must be gone before it is masked.
+      run runuser -u "$TARGET_USER" -- mv -n -- "$dir/$u" "$dir/$u.fold-bak.$n" || true
+      if [[ -e $dir/$u ]]; then warn "could not back up $dir/$u, left it unmasked"; continue; fi
+      note "backed up your own $dir/$u as $u.fold-bak.$n, then masked it"
     fi
     run runuser -u "$TARGET_USER" -- ln -sfn /dev/null "$dir/$u" || warn "could not mask $u"
   done
