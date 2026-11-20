@@ -108,6 +108,16 @@ echo 'scale = 2' > "$ovhome/.config/hypr/monitors.lua"
 [[ $(cat "$ovhome/.config/hypr/touch.lua") == 'new = 1' ]] || fail 'update did not seed the missing touch.lua'
 
 
+# 5b. The overlay seeds the Fold's corner radius into shell.toml: new file, existing [bar], a user value kept.
+toml=$ovhome/.config/omarchy/shell.toml
+overlay() { (repo=$ROOT; export HOME=$ovhome ROOT=$ov OMARCHY_PATH=$OP FOLD_KEEP_EXISTING=1; source "$repo/lib/config-overlay.sh"; install_config_overlay 2>/dev/null) || true; }
+overlay
+[[ $(cat "$toml") == $'\n[bar]\ncorner-radius = 142' ]] || fail "shell.toml not seeded: $(cat "$toml")"
+printf '[font]\nbase-size = 12\n[bar]\nposition = "top"\n' > "$toml"; overlay
+[[ $(cat "$toml") == $'[font]\nbase-size = 12\n[bar]\ncorner-radius = 142\nposition = "top"' ]] || fail "existing [bar] not extended: $(cat "$toml")"
+printf '[bar]\ncorner-radius = 100\n' > "$toml"; overlay; overlay
+[[ $(cat "$toml") == $'[bar]\ncorner-radius = 100' ]] || fail "user corner-radius not kept: $(cat "$toml")"
+
 # 4b. A missing skip list leaves every migration pending instead of running them all.
 : > "$RUN_LOG"; mv "$fold/container/update-skip-migrations.txt" "$work/skip.bak"
 out=$(REMOTE=$work/nowhere run) || true

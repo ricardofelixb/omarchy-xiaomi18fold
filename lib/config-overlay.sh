@@ -26,6 +26,18 @@ install_input_defaults() {
     echo "Preserved edited/symlinked $target; reviewed defaults: $baseline.dist"
   fi
 }
+# The Fold's inner screen has 142 px corners that clip the bar's end widgets. Seed the radius into the
+# user's shell.toml (patch 0008 reads it) when no corner-radius is set; a value the user wrote stays.
+install_bar_corner_radius() {
+  local toml="$HOME/.config/omarchy/shell.toml"
+  grep -qs '^[[:space:]]*corner-radius[[:space:]]*=' "$toml" && return 0
+  mkdir -p "${toml%/*}"
+  if grep -qs '^\[bar\][[:space:]]*$' "$toml"; then
+    sed -i '/^\[bar\][[:space:]]*$/a corner-radius = 142' "$toml"
+  else
+    printf '\n[bar]\ncorner-radius = 142\n' >> "$toml"
+  fi
+}
 install_config_overlay() {
   local file relative
   while IFS= read -r -d '' file; do
@@ -40,6 +52,7 @@ install_config_overlay() {
     if [[ $relative == fcitx5/* && ( -e $HOME/.config/$relative || -L $HOME/.config/$relative ) ]]; then continue; fi
     install -Dm644 "$file" "$HOME/.config/$relative"
   done < <(find "$ROOT/config" -type f -print0)
+  install_bar_corner_radius
   install -Dm755 "$ROOT/container/bin/fcitx5-autostart" "$HOME/.local/bin/fcitx5-autostart"
   # Xiaomi 18 Fold helpers (display guard, touch flush, dock, OSK toggle, window menu)
   for _fold_bin in fold-display-guard fold-window-menu fold-touch-flush-req fold-dismiss-overlays \
